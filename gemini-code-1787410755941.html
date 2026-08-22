@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MA Shellfish Tag Generator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+
+    .app-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .form-section {
+      flex: 1;
+      min-width: 320px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .preview-section {
+      flex: 1;
+      min-width: 320px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #1d3557;
+      border-bottom: 2px solid #1d3557;
+      padding-bottom: 8px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group.full {
+      grid-column: span 2;
+    }
+
+    label {
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      color: #457b9d;
+    }
+
+    input, select {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    .print-btn {
+      grid-column: span 2;
+      background-color: #1d3557;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .print-btn:hover {
+      background-color: #457b9d;
+    }
+
+    /* Thermal Tag Layout (4x6 Aspect Ratio) */
+    .tag {
+      width: 4in;
+      height: 6in;
+      background: white;
+      border: 3px solid #000;
+      padding: 0.2in;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .tag-header {
+      text-align: center;
+      border-bottom: 3px solid #000;
+      padding-bottom: 6px;
+    }
+
+    .tag-header h1 {
+      margin: 0;
+      font-size: 20pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+    }
+
+    .tag-header p {
+      margin: 4px 0 0 0;
+      font-size: 12pt;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+    }
+
+    .tag-body {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      flex-grow: 1;
+      padding: 8px 0;
+    }
+
+    .tag-row {
+      display: flex;
+      border-bottom: 2px solid #000;
+      padding-bottom: 6px;
+      margin-bottom: 4px;
+    }
+
+    .tag-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tag-col:not(:last-child) {
+      border-right: 2px solid #000;
+      padding-right: 8px;
+      margin-right: 8px;
+    }
+
+    .field-label {
+      font-size: 9pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #000;
+    }
+
+    .field-value {
+      font-size: 15pt;
+      font-weight: 900;
+      margin-top: 2px;
+      word-break: break-word;
+      line-height: 1.2;
+    }
+
+    /* Extra prominence for Growing Area and Species */
+    #out-area, #out-species {
+      font-size: 16pt;
+    }
+
+    .icon-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 48px;
+      margin: 4px 0;
+    }
+
+    .icon-container svg, .icon-container img {
+      max-height: 100%;
+      max-width: 100%;
+      object-fit: contain;
+    }
+
+    .tag-footer {
+      border-top: 3px solid #000;
+      padding-top: 6px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-align: justify;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    /* Print Specific Formatting */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .preview-section {
+        display: block;
+      }
+
+      .tag {
+        box-shadow: none;
+        border: 3px solid #000;
+        page-break-after: always;
+        margin: 0;
+      }
+
+      @page {
+        size: 4in 6in;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Controls Form -->
+    <div class="form-section no-print">
+      <h2>Harvest Tag Generator</h2>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label for="bizName">Business / Harvester Name</label>
+          <input type="text" id="bizName" value="BAYSTATE SHELLFISH CO.">
+        </div>
+
+        <div class="form-group">
+          <label for="certNum">MA DMF Cert / Permit #</label>
+          <input type="text" id="certNum" placeholder="e.g. 123456">
+        </div>
+
+        <div class="form-group">
+          <label for="grantNum">Aquaculture Grant #</label>
+          <input type="text" id="grantNum" placeholder="e.g. Grant 12">
+        </div>
+
+        <div class="form-group">
+          <label for="harvestDate">Harvest Date</label>
+          <input type="date" id="harvestDate">
+        </div>
+
+        <div class="form-group">
+          <label for="harvestTime">Harvest Time</label>
+          <input type="time" id="harvestTime">
+        </div>
+
+        <div class="form-group">
+          <label for="species">Species</label>
+          <select id="species">
+            <option value="Quahog">Quahog (Hard Clam)</option>
+            <option value="Soft Shell Clam">Soft Shell Clam</option>
+            <option value="Eastern Oyster">Eastern Oyster</option>
+            <option value="Razor Clam">Razor Clam</option>
+            <option value="Atlantic Sea Clam">Atlantic Sea Clam</option>
+            <option value="Sea Scallop">Sea Scallop</option>
+            <option value="Bay Scallop">Bay Scallop</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="quantity">Amount / Quantity</label>
+          <select id="quantity">
+            <option value="100ct">100ct</option>
+            <option value="50ct">50ct</option>
+            <option value="Bulk">Bulk</option>
+            <option value="Bushel">Bushel</option>
+            <option value="Cage">Cage</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="growingArea">MA Growing Area</label>
+          <input type="text" id="growingArea" placeholder="Type or select area..." list="areaList">
+          <datalist id="areaList">
+            <!-- Buzzards Bay -->
+            <option value="BB1 - Westport South Coastal">
+            <option value="BB2 - Richmond Pond">
+            <option value="BB3 - West Branch Westport River">
+            <option value="BB4 - East Branch Westport River">
+            <option value="BB5 - Little Beach Coastal">
+            <option value="BB6 - Allens Pond">
+            <option value="BB7 - Dartmouth Center Coastal">
+            <option value="BB8 - Slocums River">
+            <option value="BB9 - Little River">
+            <option value="BB10 - Smith Neck South Coastal">
+            <option value="BB11 - Dartmouth East Coastal">
+            <option value="BB12 - Apponagansett Bay">
+            <option value="BB13 - Clarks Cove">
+            <option value="BB14 - New Bedford East Coastal">
+            <option value="BB15 - New Bedford/Fairhaven Harbor">
+            <option value="BB16 - Fairhaven South Coastal">
+            <option value="BB17 - West Island South">
+            <option value="BB18 - West Island North">
+            <option value="BB19 - West Island East Coastal">
+            <option value="BB20 - Fairhaven East Coastal">
+            <option value="BB21 - Nasketucket Bay">
+            <option value="BB22 - Little Bay">
+            <option value="BB23 - Brandt Island Cove">
+            <option value="BB24 - Mattapoisett South Coastal">
+            <option value="BB25 - Mattapoisett Harbor">
+            <option value="BB26 - Mattapoisett River">
+            <option value="BB27 - Eel Pond">
+            <option value="BB28 - North Buzzards Bay">
+            <option value="BB29 - Point Connett">
+            <option value="BB30 - Hiller Cove">
+            <option value="BB31 - Aucoot Cove">
+            <option value="BB32 - Sippican Harbor">
+            <option value="BB33 - Stony Point Dike">
+            <option value="BB34 - Wings Cove">
+            <option value="BB35 - Weweantic River">
+            <option value="BB36 - Wareham River">
+            <option value="BB37 - Little Harbor/Bourne Cove">
+            <option value="BB38 - Wings Neck North">
+            <option value="BB39 - Widow Cove">
+            <option value="BB40 - Onset Bay">
+            <option value="BB41 - Sunset Cove">
+            <option value="BB42 - East River System">
+            <option value="BB43 - Fisherman Cove">
+            <option value="BB44 - Buttermilk Bay">
+            <option value="BB45 - Cape Cod Canal">
+            <option value="BB46 - Phinneys Harbor">
+            <option value="BB47 - Back River/Eel Pond">
+            <option value="BB48 - Pocasset River">
+            <option value="BB49 - Pocasset and Red Brook Harbors">
+            <option value="BB50 - Megansett Harbor">
+            <option value="BB51 - North Falmouth Outer Harbor">
+            <option value="BB52 - Wild Harbor/Wild Harbor River">
+            <option value="BB53 - Herring Brook">
+            <option value="BB54 - West Falmouth Harbor">
+            <option value="BB55 - Falmouth West Coastal">
+            <option value="BB56 - Great Sippiwisset Marsh">
+            <option value="BB57 - Little Sippiwisset Marsh">
+            <option value="BB58 - Quissett Harbor">
+            <!-- Cape Cod Bay -->
+            <option value="CCB1 - Herring Cove/Long Point">
+            <option value="CCB2 - Hatches Harbor">
+            <option value="CCB3 - Provincetown Outer Harbor">
+            <option value="CCB4 - Provincetown Inner Harbor">
+            <option value="CCB5 - The Breakwater">
+            <option value="CCB6 - Truro West Coastal">
+            <option value="CCB7 - Sesuit Harbor">
+            <option value="CCB8 - Brewster Coastal">
+            <option value="CCB9 - Orleans Coastal">
+            <option value="CCB10 - Eastham Coastal">
+            <option value="CCB11 - Wellfleet Outer Harbor">
+            <option value="CCB12 - Wellfleet Inner Harbor">
+            <option value="CCB13 - Wellfleet Harbor Islands">
+            <option value="CCB14 - Truro Coastal">
+            <option value="CCB15 - Pamet River">
+            <option value="CCB16 - Provincetown Harbor">
+            <!-- Outer Cape -->
+            <option value="OC1 - Provincetown Outer Coast">
+            <option value="OC2 - Truro Outer Coast">
+            <option value="OC3 - Wellfleet Outer Coast">
+            <option value="OC4 - Eastham Outer Coast">
+            <option value="OC5 - Nauset Harbor North">
+            <option value="OC6 - Nauset Harbor South">
+            <option value="OC7 - Pleasant Bay North">
+            <option value="OC8 - Chatham Coast">
+            <!-- South Cape & Nantucket Sound -->
+            <option value="SC1 - Great Harbor Woods Hole">
+            <option value="SC2 - Little Harbor Woods Hole">
+            <option value="SC4 - Falmouth Inner Harbor">
+            <option value="SC11 - Great Pond">
+            <option value="SC12 - Green Pond">
+            <option value="SC13 - Bournes Pond">
+            <option value="SC14 - Eel River">
+            <option value="SC15 - Waquoit Bay">
+            <option value="SC16 - Mashpee River">
+            <option value="SC17 - Popponesset Bay">
+            <option value="SC18 - Cotuit Bay">
+            <option value="SC19 - West Bay">
+            <option value="SC20 - North Bay">
+            <option value="SC21 - Hyannis Port">
+            <option value="SC22 - Hyannis Harbor">
+            <option value="SC23 - Lewis Bay">
+            <option value="SC24 - Parkers River">
+            <option value="SC25 - Bass River">
+            <option value="SC26 - Swan Pond River">
+            <option value="SC27 - Allen Harbor">
+            <option value="SC28 - Wychmere Harbor">
+            <option value="SC29 - Saquatucket Harbor">
+            <option value="SC30 - Stage Harbor">
+            <!-- Martha's Vineyard & Nantucket -->
+            <option value="MV1 - Vineyard Haven Harbor">
+            <option value="MV2 - Oak Bluffs Harbor">
+            <option value="MV3 - Sengekontacket Pond">
+            <option value="MV4 - Cape Poge Bay">
+            <option value="MV5 - Katama Bay">
+            <option value="MV6 - Edgartown Great Pond">
+            <option value="MV7 - Tisbury Great Pond">
+            <option value="MV8 - Chilmark Pond">
+            <option value="MV9 - Menemsha Pond">
+            <option value="NT1 - Nantucket Harbor">
+            <option value="NT2 - Polpis Harbor">
+            <option value="NT3 - Madaket Harbor">
+            <!-- Massachusetts Bay, North Shore & Boston Harbor -->
+            <option value="MB1 - Duxbury Beach">
+            <option value="MB2 - Marshfield East Coastal">
+            <option value="MB3 - Green Harbor">
+            <option value="MB4 - Scituate South Coastal">
+            <option value="MB5 - North River">
+            <option value="MB6 - South River">
+            <option value="MB7 - Scituate Harbor">
+            <option value="MB8 - Scituate North Coastal">
+            <option value="MB9 - Cohasset North Coastal">
+            <option value="MB10 - Cohasset Harbor">
+            <option value="MB11 - Little Harbor">
+            <option value="MB12 - Nantasket Beach">
+            <option value="MB13 - Outer Boston Harbor Islands">
+            <option value="MB14 - Massachusetts Bay">
+            <option value="GBH1 - Outer Hull Bay">
+            <option value="GBH2 - Quincy Bay">
+            <option value="GBH3 - Neponset River & Dorchester Bay">
+            <option value="GBH4 - Boston Inner Harbor">
+            <option value="GBH5 - North Boston Harbor">
+            <option value="GBH6 - Boston Outer Harbor">
+            <option value="GBH7 - Weir River and Hingham Harbor">
+            <option value="GBH8 - Weymouth Back River">
+            <option value="GBH9 - Weymouth Fore River">
+            <option value="N1 - Salisbury Coastal">
+            <option value="N2 - Merrimack River">
+            <option value="N3 - Plum Island Sound">
+            <option value="N4 - Ipswich River">
+            <option value="N5 - Essex River">
+            <option value="N6 - Annisquam River">
+            <option value="N7 - Gloucester Harbor">
+            <option value="N8 - Manchester Harbor">
+            <option value="N9 - Salem Harbor">
+            <option value="N10 - Marblehead Harbor">
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label for="sanitaryStatus">Classification</label>
+          <select id="sanitaryStatus">
+            <option value="Approved">Approved</option>
+            <option value="Conditionally Approved">Conditionally Approved</option>
+          </select>
+        </div>
+
+        <button class="print-btn" onclick="window.print()">Print Tag (4x6)</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Tag -->
+    <div class="preview-section">
+      <div class="tag" id="tag">
+        <div class="tag-header">
+          <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
+          <p>HARVESTER SHELLSTOCK TAG</p>
+        </div>
+
+        <div class="tag-body">
+          <div class="tag-row">
+            <div class="tag-col">
+              <span class="field-label">Harvester Cert / Permit #</span>
+              <span class="field-value" id="out-cert">--</span>
+            </div>
+            <div class="tag-col">
+              <span class="field-label">Grant #</span>
+              <span class="field-value" id="out-grant">--</span>
+            </div>
+          </div>
+
+          <div class="tag-row">
+            <div class="tag-col">
+              <span class="field-label">Harvest Date</span>
+              <span class="field-value" id="out-date">--</span>
+            </div>
+            <div class="tag-col">
+              <span class="field-label">Harvest Time</span>
+              <span class="field-value" id="out-time">--</span>
+            </div>
+          </div>
+
+          <div class="tag-row">
+            <div class="tag-col">
+              <span class="field-label">Growing Area / Status</span>
+              <span class="field-value" id="out-area">--</span>
+            </div>
+          </div>
+
+          <div class="tag-row">
+            <div class="tag-col">
+              <span class="field-label">Species</span>
+              <span class="field-value" id="out-species">--</span>
+            </div>
+            <div class="tag-col">
+              <span class="field-label">Quantity</span>
+              <span class="field-value" id="out-quantity">--</span>
+            </div>
+          </div>
+
+          <div class="icon-container" id="icon-box">
+            <!-- Dynamic Shellfish Icon Resizes Here -->
+            <svg width="48" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
+              <path d="M12 3C6.5 3 2 8 2 13c0 4.5 4.5 8 10 8s10-3.5 10-8c0-5-4.5-10-10-10z"/>
+              <path d="M12 3v18M6 6c3 3 3 9 0 12M18 6c-3 3-3 9 0 12"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="tag-footer">
+          THIS TAG IS A COMMERCIAL RECORD AND MUST BE KEPT ON FILE BY THE DEALER FOR 90 DAYS. 
+          SHELLFISH PARTIALLY HARVESTED OR COOLED MUST COMPLY WITH MA DMF AND NSSP MANDATES.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fields = ['bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'quantity', 'growingArea', 'sanitaryStatus'];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Restore local preferences
+      fields.forEach(id => {
+        const val = localStorage.getItem('ma_tag_' + id);
+        if (val && id !== 'harvestDate' && id !== 'harvestTime') {
+          document.getElementById(id).value = val;
+        }
+      });
+
+      // Default date to today
+      document.getElementById('harvestDate').valueAsDate = new Date();
+      updateTag();
+    });
+
+    fields.forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        updateTag();
+        if (id !== 'harvestDate' && id !== 'harvestTime') {
+          localStorage.setItem('ma_tag_' + id, document.getElementById(id).value);
+        }
+      });
+      document.getElementById(id).addEventListener('input', () => {
+        updateTag();
+        if (id !== 'harvestDate' && id !== 'harvestTime') {
+          localStorage.setItem('ma_tag_' + id, document.getElementById(id).value);
+        }
+      });
+    });
+
+    function updateTag() {
+      document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
+      document.getElementById('out-cert').textContent = document.getElementById('certNum').value || '--';
+      document.getElementById('out-grant').textContent = document.getElementById('grantNum').value || '--';
+      document.getElementById('out-date').textContent = document.getElementById('harvestDate').value || '--';
+      document.getElementById('out-time').textContent = document.getElementById('harvestTime').value || '--';
+      
+      const area = document.getElementById('growingArea').value || '--';
+      const status = document.getElementById('sanitaryStatus').value || 'Approved';
+      document.getElementById('out-area').textContent = `${area} (${status})`;
+
+      document.getElementById('out-species').textContent = document.getElementById('species').value || '--';
+      document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
+    }
+  </script>
+</body>
+</html>
