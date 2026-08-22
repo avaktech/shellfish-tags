@@ -2,48 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MA Shellfish Tag Generator</title>
   <style>
     * {
       box-sizing: border-box;
       font-family: Arial, Helvetica, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
       background-color: #f0f4f8;
       margin: 0;
-      padding: 20px;
+      padding: 12px;
       color: #333;
     }
 
     .app-container {
       display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
+      flex-direction: column;
+      gap: 16px;
       max-width: 1100px;
       margin: 0 auto;
     }
 
+    @media (min-width: 800px) {
+      body {
+        padding: 20px;
+      }
+      .app-container {
+        flex-direction: row;
+        gap: 20px;
+      }
+    }
+
     .form-section {
       flex: 1;
-      min-width: 320px;
+      width: 100%;
       background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
 
     .preview-section {
       flex: 1;
-      min-width: 320px;
+      width: 100%;
       display: flex;
       justify-content: center;
       align-items: flex-start;
+      overflow-x: auto;
+      padding: 10px 0;
     }
 
     h2 {
       margin-top: 0;
+      font-size: 1.25rem;
       color: #1d3557;
       border-bottom: 2px solid #1d3557;
       padding-bottom: 8px;
@@ -51,8 +65,14 @@
 
     .form-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 12px;
+    }
+
+    @media (min-width: 480px) {
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     .form-group {
@@ -61,38 +81,55 @@
     }
 
     .form-group.full {
-      grid-column: span 2;
+      grid-column: 1 / -1;
     }
 
     label {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       font-weight: bold;
       text-transform: uppercase;
       margin-bottom: 4px;
       color: #457b9d;
     }
 
+    /* 16px font prevents automatic browser zoom on Android/iOS when tapping inputs */
     input, select {
-      padding: 8px;
+      padding: 12px;
       border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.9rem;
+      border-radius: 6px;
+      font-size: 16px;
+      width: 100%;
+      background-color: #fff;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      padding-right: 36px;
     }
 
     .print-btn {
-      grid-column: span 2;
+      grid-column: 1 / -1;
       background-color: #1d3557;
       color: white;
       border: none;
-      padding: 12px;
-      font-size: 1rem;
+      padding: 16px;
+      font-size: 1.1rem;
       font-weight: bold;
-      border-radius: 4px;
+      border-radius: 8px;
       cursor: pointer;
-      margin-top: 10px;
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
     }
 
-    .print-btn:hover {
+    .print-btn:active {
       background-color: #457b9d;
     }
 
@@ -100,6 +137,8 @@
     .tag {
       width: 4in;
       height: 6in;
+      min-width: 4in;
+      min-height: 6in;
       background: white;
       border: 3px solid #000;
       padding: 0.2in;
@@ -108,6 +147,7 @@
       flex-direction: column;
       justify-content: space-between;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transform-origin: top center;
     }
 
     .tag-header {
@@ -118,7 +158,7 @@
 
     .tag-header h1 {
       margin: 0;
-      font-size: 20pt;
+      font-size: 18pt;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -127,7 +167,7 @@
 
     .tag-header p {
       margin: 4px 0 0 0;
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: 800;
       letter-spacing: 1.5px;
     }
@@ -137,13 +177,13 @@
       flex-direction: column;
       justify-content: space-around;
       flex-grow: 1;
-      padding: 8px 0;
+      padding: 6px 0;
     }
 
     .tag-row {
       display: flex;
       border-bottom: 2px solid #000;
-      padding-bottom: 6px;
+      padding-bottom: 4px;
       margin-bottom: 4px;
     }
 
@@ -155,36 +195,35 @@
 
     .tag-col:not(:last-child) {
       border-right: 2px solid #000;
-      padding-right: 8px;
-      margin-right: 8px;
+      padding-right: 6px;
+      margin-right: 6px;
     }
 
     .field-label {
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 800;
       text-transform: uppercase;
       color: #000;
     }
 
     .field-value {
-      font-size: 15pt;
+      font-size: 14pt;
       font-weight: 900;
       margin-top: 2px;
       word-break: break-word;
-      line-height: 1.2;
+      line-height: 1.15;
     }
 
-    /* Extra prominence for Growing Area and Species */
     #out-area, #out-species {
-      font-size: 16pt;
+      font-size: 15pt;
     }
 
     .icon-container {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 48px;
-      margin: 4px 0;
+      height: 40px;
+      margin: 2px 0;
     }
 
     .icon-container svg, .icon-container img {
@@ -195,8 +234,8 @@
 
     .tag-footer {
       border-top: 3px solid #000;
-      padding-top: 6px;
-      font-size: 8.5pt;
+      padding-top: 4px;
+      font-size: 8pt;
       font-weight: 700;
       text-align: justify;
       line-height: 1.15;
@@ -216,6 +255,8 @@
 
       .preview-section {
         display: block;
+        padding: 0;
+        overflow: visible;
       }
 
       .tag {
@@ -223,6 +264,8 @@
         border: 3px solid #000;
         page-break-after: always;
         margin: 0;
+        width: 4in;
+        height: 6in;
       }
 
       @page {
@@ -288,9 +331,9 @@
           </select>
         </div>
 
-        <div class="form-group">
+        <div class="form-group full">
           <label for="growingArea">MA Growing Area</label>
-          <input type="text" id="growingArea" placeholder="Type or select area..." list="areaList">
+          <input type="text" id="growingArea" placeholder="Type area code or town name..." list="areaList">
           <datalist id="areaList">
             <!-- Buzzards Bay -->
             <option value="BB1 - Westport South Coastal">
@@ -351,6 +394,7 @@
             <option value="BB56 - Great Sippiwisset Marsh">
             <option value="BB57 - Little Sippiwisset Marsh">
             <option value="BB58 - Quissett Harbor">
+
             <!-- Cape Cod Bay -->
             <option value="CCB1 - Herring Cove/Long Point">
             <option value="CCB2 - Hatches Harbor">
@@ -358,63 +402,72 @@
             <option value="CCB4 - Provincetown Inner Harbor">
             <option value="CCB5 - The Breakwater">
             <option value="CCB6 - Truro West Coastal">
-            <option value="CCB7 - Sesuit Harbor">
-            <option value="CCB8 - Brewster Coastal">
-            <option value="CCB9 - Orleans Coastal">
-            <option value="CCB10 - Eastham Coastal">
-            <option value="CCB11 - Wellfleet Outer Harbor">
-            <option value="CCB12 - Wellfleet Inner Harbor">
-            <option value="CCB13 - Wellfleet Harbor Islands">
-            <option value="CCB14 - Truro Coastal">
-            <option value="CCB15 - Pamet River">
-            <option value="CCB16 - Provincetown Harbor">
-            <!-- Outer Cape -->
-            <option value="OC1 - Provincetown Outer Coast">
-            <option value="OC2 - Truro Outer Coast">
-            <option value="OC3 - Wellfleet Outer Coast">
-            <option value="OC4 - Eastham Outer Coast">
-            <option value="OC5 - Nauset Harbor North">
-            <option value="OC6 - Nauset Harbor South">
-            <option value="OC7 - Pleasant Bay North">
-            <option value="OC8 - Chatham Coast">
-            <!-- South Cape & Nantucket Sound -->
-            <option value="SC1 - Great Harbor Woods Hole">
-            <option value="SC2 - Little Harbor Woods Hole">
-            <option value="SC4 - Falmouth Inner Harbor">
-            <option value="SC11 - Great Pond">
-            <option value="SC12 - Green Pond">
-            <option value="SC13 - Bournes Pond">
-            <option value="SC14 - Eel River">
-            <option value="SC15 - Waquoit Bay">
-            <option value="SC16 - Mashpee River">
-            <option value="SC17 - Popponesset Bay">
-            <option value="SC18 - Cotuit Bay">
-            <option value="SC19 - West Bay">
-            <option value="SC20 - North Bay">
-            <option value="SC21 - Hyannis Port">
-            <option value="SC22 - Hyannis Harbor">
-            <option value="SC23 - Lewis Bay">
-            <option value="SC24 - Parkers River">
-            <option value="SC25 - Bass River">
-            <option value="SC26 - Swan Pond River">
-            <option value="SC27 - Allen Harbor">
-            <option value="SC28 - Wychmere Harbor">
-            <option value="SC29 - Saquatucket Harbor">
-            <option value="SC30 - Stage Harbor">
-            <!-- Martha's Vineyard & Nantucket -->
-            <option value="MV1 - Vineyard Haven Harbor">
-            <option value="MV2 - Oak Bluffs Harbor">
-            <option value="MV3 - Sengekontacket Pond">
-            <option value="MV4 - Cape Poge Bay">
-            <option value="MV5 - Katama Bay">
-            <option value="MV6 - Edgartown Great Pond">
-            <option value="MV7 - Tisbury Great Pond">
-            <option value="MV8 - Chilmark Pond">
-            <option value="MV9 - Menemsha Pond">
-            <option value="NT1 - Nantucket Harbor">
-            <option value="NT2 - Polpis Harbor">
-            <option value="NT3 - Madaket Harbor">
-            <!-- Massachusetts Bay, North Shore & Boston Harbor -->
+            <option value="CCB7 - Pamet River">
+            <option value="CCB8 - Wellfleet West Coastal">
+            <option value="CCB9 - Eastham West Coastal">
+            <option value="CCB10 - Hatches Creek">
+            <option value="CCB11 - Wellfleet Harbor">
+            <option value="CCB12 - Herring River">
+            <option value="CCB13 - Wellfleet Inner Harbor">
+            <option value="CCB14 - Loagy Bay">
+            <option value="CCB15 - Herring River">
+            <option value="CCB16 - Boat Meadow River">
+            <option value="CCB17 - Orleans North Coastal">
+            <option value="CCB18 - Rock Harbor">
+            <option value="CCB19 - Little Namskaket Creek">
+            <option value="CCB20 - Brewster North Coastal">
+            <option value="CCB21 - Namskaket Creek">
+            <option value="CCB22 - Stony Brook">
+            <option value="CCB23 - Dennis North Coastal">
+            <option value="CCB24 - Quivett Creek">
+            <option value="CCB25 - Sesuit Harbor">
+            <option value="CCB26 - Yarmouth North Coastal">
+            <option value="CCB27 - Chase Garden Creek">
+            <option value="CCB28 - Bass Creek & Lone Tree Creek">
+            <option value="CCB29 - Mill Creek & Short Wharf Creek">
+            <option value="CCB30 - Barnstable North Coastal">
+            <option value="CCB31 - Barnstable Harbor">
+            <option value="CCB32 - Barnstable Inner Harbor">
+            <option value="CCB33 - Barnstable Marshes">
+            <option value="CCB34 - Scorton Creek">
+            <option value="CCB35 - Sandwich North Coastal">
+            <option value="CCB36 - Scorton Harbor">
+            <option value="CCB37 - Sandwich Harbor">
+            <option value="CCB38 - Bourne North Coastal">
+            <option value="CCB39 - Plymouth South Coastal">
+            <option value="CCB40 - Ellisville Harbor">
+            <option value="CCB41 - Plymouth North Coastal">
+            <option value="CCB42 - Plymouth Harbor">
+            <option value="CCB43 - Kingston Bay">
+            <option value="CCB44 - Jones River">
+            <option value="CCB45 - Duxbury Bay">
+            <option value="CCB46 - Bluefish River">
+            <option value="CCB47 - Back River">
+            <option value="CCB48 - Cape Cod Bay">
+
+            <!-- Elizabethan Islands -->
+            <option value="E1 - Naushon Island West Coastal">
+            <option value="E2 - Hadleys Harbor">
+            <option value="E3 - Northwest Gutter">
+            <option value="E4 - Gosnold West Coastal">
+            <option value="E7 - Quicks Hole Pond">
+            <option value="E9 - Cuttyhunk Pond">
+            <option value="E10 - Westend Pond">
+            <option value="E11 - Gosnold East Coastal">
+            <option value="E12 - Naushon East Coastal">
+
+            <!-- Greater Boston Harbor -->
+            <option value="GBH1 - Outer Hull Bay">
+            <option value="GBH2 - Quincy Bay">
+            <option value="GBH3 - Neponset River & Dorchester Bay">
+            <option value="GBH4 - Boston Inner Harbor">
+            <option value="GBH5 - North Boston Harbor">
+            <option value="GBH6 - Boston Outer Harbor">
+            <option value="GBH7 - Weir River and Hingham Harbor">
+            <option value="GBH8 - Weymouth Back River">
+            <option value="GBH9 - Weymouth Fore River">
+
+            <!-- Massachusetts Bay -->
             <option value="MB1 - Duxbury Beach">
             <option value="MB2 - Marshfield East Coastal">
             <option value="MB3 - Green Harbor">
@@ -429,29 +482,171 @@
             <option value="MB12 - Nantasket Beach">
             <option value="MB13 - Outer Boston Harbor Islands">
             <option value="MB14 - Massachusetts Bay">
-            <option value="GBH1 - Outer Hull Bay">
-            <option value="GBH2 - Quincy Bay">
-            <option value="GBH3 - Neponset River & Dorchester Bay">
-            <option value="GBH4 - Boston Inner Harbor">
-            <option value="GBH5 - North Boston Harbor">
-            <option value="GBH6 - Boston Outer Harbor">
-            <option value="GBH7 - Weir River and Hingham Harbor">
-            <option value="GBH8 - Weymouth Back River">
-            <option value="GBH9 - Weymouth Fore River">
-            <option value="N1 - Salisbury Coastal">
+
+            <!-- Mount Hope Bay -->
+            <option value="MHB1 - Mount Hope Bay">
+            <option value="MHB2 - Taunton River">
+            <option value="MHB3 - Lee River">
+            <option value="MHB4 - Cole River">
+            <option value="MHB5 - Palmer River">
+
+            <!-- North Shore -->
+            <option value="N1 - Salisbury Beach">
             <option value="N2 - Merrimack River">
-            <option value="N3 - Plum Island Sound">
-            <option value="N4 - Ipswich River">
-            <option value="N5 - Essex River">
-            <option value="N6 - Annisquam River">
-            <option value="N7 - Gloucester Harbor">
-            <option value="N8 - Manchester Harbor">
-            <option value="N9 - Salem Harbor">
-            <option value="N10 - Marblehead Harbor">
+            <option value="N3 - Plum Island">
+            <option value="N4 - Plum Island Sound">
+            <option value="N5 - Ipswich River">
+            <option value="N6 - Cranes Beach">
+            <option value="N7 - Essex Bay">
+            <option value="N8 - Coffins Beach">
+            <option value="N9 - Annisquam River/Gloucester Harbor">
+            <option value="N10 - Outer North Gloucester">
+            <option value="N11 - Rockport">
+            <option value="N12 - Good Harbor Beach">
+            <option value="N13 - Eastern Point">
+            <option value="N14 - Magnolia">
+            <option value="N15 - Manchester">
+            <option value="N16 - Beverly">
+            <option value="N17 - Danvers River">
+            <option value="N18 - Salem Harbor">
+            <option value="N19 - Folger/Peaches Point">
+            <option value="N20 - Marblehead Harbor">
+            <option value="N21 - Marblehead">
+            <option value="N22 - Swampscott">
+            <option value="N23 - Lynn">
+            <option value="N24 - Nahant Bay">
+            <option value="N25 - Nahant Harbor">
+            <option value="N26 - Lynn Harbor and Saugus/Pines Rivers">
+            <option value="N27 - Winthrop Beach">
+            <option value="N28 - Deer Island">
+
+            <!-- Nantucket Sound -->
+            <option value="NS1 - Nantucket Sound">
+
+            <!-- Nantucket -->
+            <option value="NT1 - Nantucket Northeast Coastal">
+            <option value="NT2 - Nantucket Harbor West">
+            <option value="NT3 - Nantucket Harbor East">
+            <option value="NT4 - Polpis Harbor">
+            <option value="NT5 - Head Of The Harbor">
+            <option value="NT6 - Coskata Pond">
+            <option value="NT7 - Nantucket East Coastal">
+            <option value="NT9 - Sesachacha Pond">
+            <option value="NT11 - Madaket Harbor">
+            <option value="NT13 - Tuckernuck Island">
+
+            <!-- Outer Cape Cod -->
+            <option value="OC1 - Nauset Beach South Coastal">
+            <option value="OC2 - Nauset Harbor">
+            <option value="OC3 - Mill Pond">
+            <option value="OC4 - Town Cove">
+            <option value="OC5 - Nauset Marsh">
+            <option value="OC6 - Salt Pond">
+            <option value="OC9 - Truro East Coastal">
+            <option value="OC10 - Provincetown North Coastal">
+
+            <!-- South Cape Cod -->
+            <option value="SC1 - Woods Hole West Coastal">
+            <option value="SC2 - Great Harbor">
+            <option value="SC3 - Woods Hole Outer Harbor">
+            <option value="SC4 - Little Harbor">
+            <option value="SC5 - South Falmouth Coastal">
+            <option value="SC6 - Oyster Pond">
+            <option value="SC7 - Salt Pond">
+            <option value="SC8 - East Falmouth Coastal">
+            <option value="SC9 - Falmouth Inner Harbor">
+            <option value="SC10 - Little Pond">
+            <option value="SC11 - Great Pond">
+            <option value="SC12 - Green Pond">
+            <option value="SC13 - Bournes Pond">
+            <option value="SC14 - Eel Pond">
+            <option value="SC15 - Waquoit Bay">
+            <option value="SC16 - Little and Great Rivers Complex">
+            <option value="SC17 - Mashpee South Coastal">
+            <option value="SC18 - Barnstable South Coastal">
+            <option value="SC19 - Popponesset Bay">
+            <option value="SC20 - Mashpee River and Shoestring Bay">
+            <option value="SC21 - Cotuit Bay">
+            <option value="SC22 - West Bay">
+            <option value="SC23 - North Bay">
+            <option value="SC24 - East Bay and Centerville River">
+            <option value="SC25 - Bumps River">
+            <option value="SC26 - Squaw Island">
+            <option value="SC27 - Hyannis Harbor">
+            <option value="SC28 - Lewis Bay">
+            <option value="SC29 - Yarmouth South Coastal">
+            <option value="SC30 - Parkers River & Seine Pond">
+            <option value="SC31 - Lewis Pond">
+            <option value="SC32 - Dennis South Coastal">
+            <option value="SC33 - Bass River South">
+            <option value="SC34 - Bass River Center">
+            <option value="SC35 - Bass River North">
+            <option value="SC36 - Swan Pond">
+            <option value="SC37 - Harwich South Coastal">
+            <option value="SC38 - Herring River">
+            <option value="SC39 - Allens Harbor">
+            <option value="SC40 - Wychmere Harbor">
+            <option value="SC41 - Saquatucket Harbor">
+            <option value="SC42 - Chatham South Coastal">
+            <option value="SC43 - Red River">
+            <option value="SC44 - Mill Creek">
+            <option value="SC45 - Taylors Pond">
+            <option value="SC46 - Bucks & Cockle Cove Creek">
+            <option value="SC47 - Monomoy Island">
+            <option value="SC48 - Stage Harbor">
+            <option value="SC49 - Oyster Pond River">
+            <option value="SC50 - Oyster Pond">
+            <option value="SC51 - Mitchell River and Mill Ponds">
+            <option value="SC52 - Chatham Harbor">
+            <option value="SC53 - Pleasant Bay">
+            <option value="SC54 - Bassing Harbor">
+            <option value="SC55 - Crows Pond">
+            <option value="SC56 - Ryders Cove">
+            <option value="SC57 - Frostfish Cove">
+            <option value="SC58 - Muddy Creek">
+            <option value="SC59 - Round Cove">
+            <option value="SC60 - Quanset Pond">
+            <option value="SC61 - Little Pleasant Bay">
+            <option value="SC62 - Pochet Creek">
+            <option value="SC63 - Namequoit River">
+            <option value="SC64 - Paw Wah Pond">
+
+            <!-- Martha's Vineyard -->
+            <option value="V1 - Vineyard West Coastal">
+            <option value="V2 - Menemsha Inlet and Pond">
+            <option value="V3 - Nashaquitsa and Stonewall Pond">
+            <option value="V5 - Vineyard North Coastal">
+            <option value="V6 - James Pond">
+            <option value="V8 - Lake Tashmoo">
+            <option value="V9 - Vineyard East Coastal">
+            <option value="V10 - Vineyard Haven Harbor">
+            <option value="V11 - Lagoon Pond">
+            <option value="V13 - Edgartown Outer Harbor">
+            <option value="V14 - Oak Bluffs Harbor">
+            <option value="V15 - Hamlin Pond and Farm Pond">
+            <option value="V16 - Sengekontacket Pond">
+            <option value="V17 - Eel Pond">
+            <option value="V18 - Chappaquiddick Beach">
+            <option value="V19 - Edgartown Inner Harbor">
+            <option value="V20 - Katama Bay">
+            <option value="V21 - Cape Poge Bay">
+            <option value="V22 - Pocha Pond">
+            <option value="V23 - Edgartown East Coastal">
+            <option value="V24 - Vineyard South Coastal">
+            <option value="V25 - Crackatuxet Cove">
+            <option value="V26 - Edgartown Great Pond">
+            <option value="V27 - Jobs Neck Pond">
+            <option value="V28 - Paqua Pond">
+            <option value="V29 - Oyster Pond">
+            <option value="V31 - Tisbury Great Pond">
+            <option value="V32 - Chilmark Pond">
+            <option value="V33 - Gay Head South Coastal">
+            <option value="V35 - Squibnocket Pond">
+            <option value="V36 - Harthaven Harbor">
           </datalist>
         </div>
 
-        <div class="form-group">
+        <div class="form-group full">
           <label for="sanitaryStatus">Classification</label>
           <select id="sanitaryStatus">
             <option value="Approved">Approved</option>
@@ -459,7 +654,10 @@
           </select>
         </div>
 
-        <button class="print-btn" onclick="window.print()">Print Tag (4x6)</button>
+        <button class="print-btn" onclick="window.print()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+          Print Tag (4x6)
+        </button>
       </div>
     </div>
 
@@ -513,7 +711,6 @@
           </div>
 
           <div class="icon-container" id="icon-box">
-            <!-- Dynamic Shellfish Icon Resizes Here -->
             <svg width="48" height="36" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
               <path d="M12 3C6.5 3 2 8 2 13c0 4.5 4.5 8 10 8s10-3.5 10-8c0-5-4.5-10-10-10z"/>
               <path d="M12 3v18M6 6c3 3 3 9 0 12M18 6c-3 3-3 9 0 12"/>
@@ -542,22 +739,26 @@
       });
 
       // Default date to today
-      document.getElementById('harvestDate').valueAsDate = new Date();
+      const now = new Date();
+      document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
+      
+      // Default time to current local time (HH:MM)
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('harvestTime').value = `${hours}:${minutes}`;
+
       updateTag();
     });
 
     fields.forEach(id => {
-      document.getElementById(id).addEventListener('change', () => {
-        updateTag();
-        if (id !== 'harvestDate' && id !== 'harvestTime') {
-          localStorage.setItem('ma_tag_' + id, document.getElementById(id).value);
-        }
-      });
-      document.getElementById(id).addEventListener('input', () => {
-        updateTag();
-        if (id !== 'harvestDate' && id !== 'harvestTime') {
-          localStorage.setItem('ma_tag_' + id, document.getElementById(id).value);
-        }
+      const el = document.getElementById(id);
+      ['change', 'input'].forEach(evt => {
+        el.addEventListener(evt, () => {
+          updateTag();
+          if (id !== 'harvestDate' && id !== 'harvestTime') {
+            localStorage.setItem('ma_tag_' + id, el.value);
+          }
+        });
       });
     });
 
