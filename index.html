@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MA Shellfish Tag Generator</title>
+  <style id="dynamic-print-style">
+    @page { size: 4in 6in; margin: 0; }
+  </style>
   <style>
     * {
       box-sizing: border-box;
@@ -92,7 +95,6 @@
       color: #457b9d;
     }
 
-    /* 16px font prevents automatic browser zoom on Android/iOS when tapping inputs */
     input, select {
       padding: 12px;
       border: 1px solid #ccc;
@@ -105,7 +107,7 @@
     }
 
     select {
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
       background-repeat: no-repeat;
       background-position: right 12px center;
       background-size: 16px;
@@ -133,12 +135,8 @@
       background-color: #457b9d;
     }
 
-    /* Thermal Tag Layout (4x6 Aspect Ratio) */
+    /* Tag Layout */
     .tag {
-      width: 4in;
-      height: 6in;
-      min-width: 4in;
-      min-height: 6in;
       background: white;
       border: 3px solid #000;
       padding: 0.2in;
@@ -150,6 +148,23 @@
       transform-origin: top center;
     }
 
+    /* Default 4x6 Dimensions */
+    .tag.size-4x6 {
+      width: 4in;
+      height: 6in;
+      min-width: 4in;
+      min-height: 6in;
+    }
+
+    /* 3x7 Dimensions */
+    .tag.size-3x7 {
+      width: 3in;
+      height: 7in;
+      min-width: 3in;
+      min-height: 7in;
+      padding: 0.15in;
+    }
+
     .tag-header {
       text-align: center;
       border-bottom: 3px solid #000;
@@ -158,18 +173,22 @@
 
     .tag-header h1 {
       margin: 0;
-      font-size: 18pt;
+      font-size: 16pt;
       font-weight: 900;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       line-height: 1.1;
     }
 
+    .tag.size-3x7 .tag-header h1 {
+      font-size: 14pt;
+    }
+
     .tag-header p {
       margin: 4px 0 0 0;
-      font-size: 11pt;
+      font-size: 10pt;
       font-weight: 800;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
     }
 
     .tag-body {
@@ -200,33 +219,29 @@
     }
 
     .field-label {
-      font-size: 8.5pt;
+      font-size: 8pt;
       font-weight: 800;
       text-transform: uppercase;
       color: #000;
     }
 
     .field-value {
-      font-size: 14pt;
+      font-size: 12pt;
       font-weight: 900;
       margin-top: 2px;
       word-break: break-word;
       line-height: 1.15;
     }
 
-    #out-area, #out-species {
-      font-size: 15pt;
-    }
-
     .icon-container {
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 40px;
-      margin: 2px 0;
+      height: 48px;
+      margin: 4px 0;
     }
 
-    .icon-container svg, .icon-container img {
+    .icon-container img {
       max-height: 100%;
       max-width: 100%;
       object-fit: contain;
@@ -235,18 +250,18 @@
     .tag-footer {
       border-top: 3px solid #000;
       padding-top: 4px;
-      font-size: 8pt;
+      font-size: 7.5pt;
       font-weight: 700;
       text-align: justify;
       line-height: 1.15;
       text-transform: uppercase;
     }
 
-    /* Print Specific Formatting */
     @media print {
       body {
         background: white;
         padding: 0;
+        margin: 0;
       }
 
       .no-print {
@@ -264,13 +279,16 @@
         border: 3px solid #000;
         page-break-after: always;
         margin: 0;
+      }
+
+      .tag.size-4x6 {
         width: 4in;
         height: 6in;
       }
 
-      @page {
-        size: 4in 6in;
-        margin: 0;
+      .tag.size-3x7 {
+        width: 3in;
+        height: 7in;
       }
     }
   </style>
@@ -278,10 +296,17 @@
 <body>
 
   <div class="app-container">
-    <!-- Controls Form -->
     <div class="form-section no-print">
       <h2>Harvest Tag Generator</h2>
       <div class="form-grid">
+        <div class="form-group full">
+          <label for="tagSize">Tag Size</label>
+          <select id="tagSize">
+            <option value="4x6">4" x 6" (Standard Thermal)</option>
+            <option value="3x7">3" x 7" (Narrow Thermal)</option>
+          </select>
+        </div>
+
         <div class="form-group full">
           <label for="bizName">Business / Harvester Name</label>
           <input type="text" id="bizName" value="BAYSTATE SHELLFISH CO.">
@@ -656,14 +681,14 @@
 
         <button class="print-btn" onclick="window.print()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-          Print Tag (4x6)
+          <span id="print-btn-text">Print Tag (4x6)</span>
         </button>
       </div>
     </div>
 
     <!-- Live Preview Tag -->
     <div class="preview-section">
-      <div class="tag" id="tag">
+      <div class="tag size-4x6" id="tag">
         <div class="tag-header">
           <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
           <p>HARVESTER SHELLSTOCK TAG</p>
@@ -710,41 +735,22 @@
             </div>
           </div>
 
-         <div class="icon-container" id="icon-box">
-  <svg width="70" height="40" viewBox="0 0 100 60" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Top Shell (Open View / Interior) -->
-    <path d="M 22,22 C 20,12 35,8 55,10 C 72,12 85,20 82,28 C 78,35 60,36 40,34 C 25,32 23,28 22,22 Z" fill="none" />
-    <!-- Interior Muscle / Adductor Scars -->
-    <path d="M 45,20 C 42,16 50,15 52,19 C 53,23 47,24 45,20 Z" fill="#000" />
-    <path d="M 30,18 C 38,15 60,17 72,23" />
-    <path d="M 27,24 C 36,28 58,30 76,27" />
-
-    <!-- Bottom Shell (Rough Exterior) -->
-    <path d="M 18,38 C 15,30 28,26 48,27 C 68,28 85,34 82,42 C 78,50 58,54 38,51 C 22,48 19,43 18,38 Z" fill="none" stroke-width="2.2" />
-    <!-- Exterior Concentric Growth Rings & Texture -->
-    <path d="M 25,36 C 35,32 55,33 73,38" />
-    <path d="M 22,41 C 32,38 58,40 78,43" />
-    <path d="M 26,45 C 38,43 55,45 72,47" />
-    <path d="M 33,49 C 43,47 52,48 64,50" />
-    <!-- Hinge Details -->
-    <path d="M 78,41 C 81,42 83,40 81,38" />
-  </svg>
-</div>
+          <div class="icon-container" id="icon-box">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSzy8NC9091GRCkBRfROCXpOAHAgSBHB9nJQu6jD3JNkw&amp;s" alt="Logo">
+          </div>
         </div>
 
         <div class="tag-footer">
-          THIS TAG IS A COMMERCIAL RECORD AND MUST BE KEPT ON FILE BY THE DEALER FOR 90 DAYS. 
-          SHELLFISH PARTIALLY HARVESTED OR COOLED MUST COMPLY WITH MA DMF AND NSSP MANDATES.
+          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const fields = ['bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'quantity', 'growingArea', 'sanitaryStatus'];
+    const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Restore local preferences
       fields.forEach(id => {
         const val = localStorage.getItem('ma_tag_' + id);
         if (val && id !== 'harvestDate' && id !== 'harvestTime') {
@@ -752,11 +758,9 @@
         }
       });
 
-      // Default date to today
       const now = new Date();
       document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
       
-      // Default time to current local time (HH:MM)
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       document.getElementById('harvestTime').value = `${hours}:${minutes}`;
@@ -776,12 +780,49 @@
       });
     });
 
+    function formatDate(rawDate) {
+      if (!rawDate) return '--';
+      const [year, month, day] = rawDate.split('-');
+      return `${month}/${day}/${year}`;
+    }
+
+    function formatTime(rawTime) {
+      if (!rawTime) return '--';
+      let [hours, minutes] = rawTime.split(':');
+      hours = parseInt(hours, 10);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      return `${hours}:${minutes} ${ampm}`;
+    }
+
     function updateTag() {
+      const tagElement = document.getElementById('tag');
+      const sizeValue = document.getElementById('tagSize').value;
+      const dynamicStyle = document.getElementById('dynamic-print-style');
+
+      // Handle Tag Sizing & Print Styles
+      if (sizeValue === '3x7') {
+        tagElement.classList.remove('size-4x6');
+        tagElement.classList.add('size-3x7');
+        dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
+        document.getElementById('print-btn-text').textContent = 'Print Tag (3x7)';
+      } else {
+        tagElement.classList.remove('size-3x7');
+        tagElement.classList.add('size-4x6');
+        dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
+        document.getElementById('print-btn-text').textContent = 'Print Tag (4x6)';
+      }
+
+      // Handle Content Updates
       document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
       document.getElementById('out-cert').textContent = document.getElementById('certNum').value || '--';
       document.getElementById('out-grant').textContent = document.getElementById('grantNum').value || '--';
-      document.getElementById('out-date').textContent = document.getElementById('harvestDate').value || '--';
-      document.getElementById('out-time').textContent = document.getElementById('harvestTime').value || '--';
+      
+      const rawDate = document.getElementById('harvestDate').value;
+      const rawTime = document.getElementById('harvestTime').value;
+      
+      document.getElementById('out-date').textContent = formatDate(rawDate);
+      document.getElementById('out-time').textContent = formatTime(rawTime);
       
       const area = document.getElementById('growingArea').value || '--';
       const status = document.getElementById('sanitaryStatus').value || 'Approved';
