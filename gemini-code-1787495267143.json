@@ -1,0 +1,22 @@
+{
+  "short_name": "TAG MAKER",
+  "name": "Harvest Tag Generator",
+  "icons": [
+    {
+      "src": "oyster-icon.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "oyster-icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./",
+  "background_color": "#f0f4f8",
+  "theme_color": "#1d3557",
+  "display": "standalone"
+}
