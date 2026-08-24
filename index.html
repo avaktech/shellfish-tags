@@ -643,7 +643,7 @@
       document.getElementById('bt-btn-text').textContent = 'Connect BT Printer';
     }
 
-    // Render tag to Canvas and send as ESC/POS bitmap bytes over Bluetooth
+    // Render tag to Canvas, prompt copies, and stream ESC/POS bytes over Bluetooth
     async function printViaBluetooth() {
       if (!bluetoothCharacteristic) {
         alert('Please connect a Bluetooth thermal printer first.');
@@ -651,8 +651,16 @@
         if (!bluetoothCharacteristic) return;
       }
 
+      // Prompt for number of copies
+      const copiesInput = prompt('Enter number of tag copies to print:', '1');
+      if (!copiesInput) return;
+      const numCopies = parseInt(copiesInput, 10);
+      if (isNaN(numCopies) || numCopies <= 0) {
+        alert('Please enter a valid number of copies.');
+        return;
+      }
+
       const sizeValue = document.getElementById('tagSize').value;
-      // 203 DPI layout sizing
       const dpi = 203;
       const widthInches = sizeValue === '3x7' ? 3 : 4;
       const heightInches = sizeValue === '3x7' ? 7 : 6;
@@ -674,7 +682,6 @@
       ctx.strokeStyle = '#000000';
       ctx.strokeRect(6, 6, canvasWidth - 12, canvasHeight - 12);
 
-      // Scale context or draw programmatic layout matching CSS
       ctx.fillStyle = '#000000';
       ctx.textBaseline = 'top';
 
@@ -746,11 +753,10 @@
       ctx.font = 'bold 22px Arial';
       ctx.textAlign = 'center';
       
-      // Word wrap footer text
       const footerText = "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.";
       wrapText(ctx, footerText, canvasWidth / 2, canvasHeight - 130, canvasWidth - 100, 30);
 
-      // Convert canvas to monochrome raster data for thermal printing (ESC/POS GS v 0)
+      // Convert canvas to monochrome raster data
       const imgData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
       const pixels = imgData.data;
       const bytesWidth = Math.ceil(canvasWidth / 8);
@@ -764,7 +770,6 @@
           const b = pixels[offset + 2];
           const gray = (r * 0.299 + g * 0.587 + b * 0.114);
           
-          // Threshold to pure black/white
           if (gray < 128) {
             const byteIndex = y * bytesWidth + Math.floor(x / 8);
             rasterBytes[byteIndex] |= (128 >> (x % 8));
@@ -772,17 +777,15 @@
         }
       }
 
-      // Build ESC/POS raster print command packet
       const xL = bytesWidth & 0xFF;
       const xH = (bytesWidth >> 8) & 0xFF;
       const yL = canvasHeight & 0xFF;
       const yH = (canvasHeight >> 8) & 0xFF;
 
-      const initCmd = new Uint8Array([0x1B, 0x40]); // ESC @ (Initialize printer)
+      const initCmd = new Uint8Array([0x1B, 0x40]);
       const rasterHeader = new Uint8Array([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
-      const feedCutCmd = new Uint8Array([0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x01]); // Feed & Cut
+      const feedCutCmd = new Uint8Array([0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x01]);
 
-      // Combine payloads
       const totalLength = initCmd.length + rasterHeader.length + rasterBytes.length + feedCutCmd.length;
       const fullPayload = new Uint8Array(totalLength);
       let offset = 0;
@@ -791,14 +794,19 @@
       fullPayload.set(rasterBytes, offset); offset += rasterBytes.length;
       fullPayload.set(feedCutCmd, offset);
 
-      // Stream chunks over Bluetooth characteristic (chunked to prevent MTU overload)
+      // Loop through and print the specified number of copies
       const chunkSize = 512;
-      for (let i = 0; i < fullPayload.length; i += chunkSize) {
-        const chunk = fullPayload.slice(i, i + chunkSize);
-        await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
+      for (let c = 0; c < numCopies; c++) {
+        for (let i = 0; i < fullPayload.length; i += chunkSize) {
+          const chunk = fullPayload.slice(i, i + chunkSize);
+          await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
+        }
+        if (c < numCopies - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
       }
 
-      alert('Tag sent to Bluetooth printer successfully!');
+      alert(`Successfully sent ${numCopies} copy(ies) to printer!`);
     }
 
     function wrapText(context, text, x, y, maxWidth, lineHeight) {
