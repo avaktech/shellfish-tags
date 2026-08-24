@@ -359,6 +359,15 @@
         </div>
 
         <div class="form-group">
+          <label for="sizeGrade">Size Grade</label>
+          <select id="sizeGrade">
+            <option value="Select">Select</option>
+            <option value="Petite">Petite</option>
+            <option value="Jumbo">Jumbo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="quantity">Amount / Quantity</label>
           <select id="quantity">
             <option value="100ct">100ct</option>
@@ -739,7 +748,7 @@
 
           <div class="tag-row">
             <div class="tag-col">
-              <span class="field-label">Species</span>
+              <span class="field-label">Species & Size</span>
               <span class="field-value" id="out-species">--</span>
             </div>
             <div class="tag-col">
@@ -761,7 +770,7 @@
   </div>
 
   <script>
-    const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'quantity', 'growingArea', 'sanitaryStatus'];
+    const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
       fields.forEach(id => {
@@ -841,7 +850,10 @@
       const status = document.getElementById('sanitaryStatus').value || 'Approved';
       document.getElementById('out-area').textContent = `${area} (${status})`;
 
-      document.getElementById('out-species').textContent = document.getElementById('species').value || '--';
+      const species = document.getElementById('species').value || '--';
+      const sizeGrade = document.getElementById('sizeGrade').value || '--';
+      document.getElementById('out-species').textContent = `${species} - ${sizeGrade}`;
+
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
   </script>
