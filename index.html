@@ -65,8 +65,9 @@
       flex: 1;
       width: 100%;
       display: flex;
-      justify-content: center;
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
       overflow-x: auto;
       padding: 10px 0;
     }
@@ -132,14 +133,16 @@
       display: flex;
       gap: 10px;
       margin-top: 8px;
+      flex-wrap: wrap;
     }
 
     .action-btn {
       flex: 1;
+      min-width: 140px;
       color: white;
       border: none;
       padding: 16px;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: bold;
       border-radius: 8px;
       cursor: pointer;
@@ -155,6 +158,9 @@
     .bt-btn { background-color: #2a9d8f; }
     .bt-btn:active { background-color: #21867a; }
     .bt-btn.connected { background-color: #e76f51; }
+
+    .usb-btn { background-color: #457b9d; }
+    .usb-btn:active { background-color: #1d3557; }
 
     /* Tag Layout */
     .tag {
@@ -184,6 +190,14 @@
       padding: 0.15in;
     }
 
+    .tag.size-3x5 {
+      width: 3in;
+      height: 5in;
+      min-width: 3in;
+      min-height: 5in;
+      padding: 0.12in;
+    }
+
     .tag-header {
       text-align: center;
       border-bottom: 3px solid #000;
@@ -199,8 +213,9 @@
       line-height: 1.1;
     }
 
-    .tag.size-3x7 .tag-header h1 {
-      font-size: 14pt;
+    .tag.size-3x7 .tag-header h1,
+    .tag.size-3x5 .tag-header h1 {
+      font-size: 13pt;
     }
 
     .tag-header p {
@@ -210,19 +225,23 @@
       letter-spacing: 1px;
     }
 
+    .tag.size-3x5 .tag-header p {
+      font-size: 8.5pt;
+    }
+
     .tag-body {
       display: flex;
       flex-direction: column;
       justify-content: space-around;
       flex-grow: 1;
-      padding: 6px 0;
+      padding: 4px 0;
     }
 
     .tag-row {
       display: flex;
       border-bottom: 2px solid #000;
-      padding-bottom: 4px;
-      margin-bottom: 4px;
+      padding-bottom: 3px;
+      margin-bottom: 3px;
     }
 
     .tag-col {
@@ -238,14 +257,14 @@
     }
 
     .field-label {
-      font-size: 8pt;
+      font-size: 7.5pt;
       font-weight: 800;
       text-transform: uppercase;
       color: #000;
     }
 
     .field-value {
-      font-size: 12pt;
+      font-size: 11pt;
       font-weight: 900;
       margin-top: 2px;
       word-break: break-word;
@@ -256,8 +275,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 48px;
-      margin: 4px 0;
+      height: 40px;
+      margin: 2px 0;
     }
 
     .icon-container img {
@@ -269,10 +288,10 @@
     .tag-footer {
       border-top: 3px solid #000;
       padding-top: 4px;
-      font-size: 7.5pt;
+      font-size: 7pt;
       font-weight: 700;
       text-align: justify;
-      line-height: 1.15;
+      line-height: 1.1;
       text-transform: uppercase;
     }
 
@@ -298,6 +317,7 @@
       }
       .tag.size-4x6 { width: 4in; height: 6in; }
       .tag.size-3x7 { width: 3in; height: 7in; }
+      .tag.size-3x5 { width: 3in; height: 5in; }
     }
   </style>
 </head>
@@ -312,6 +332,7 @@
           <select id="tagSize">
             <option value="4x6">4" x 6" (Standard Thermal)</option>
             <option value="3x7">3" x 7" (Narrow Thermal)</option>
+            <option value="3x5">3" x 5" (Compact Thermal)</option>
           </select>
         </div>
 
@@ -414,19 +435,23 @@
 
         <div class="btn-row">
           <button class="action-btn bt-btn" id="btConnectBtn" onclick="toggleBluetooth()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span id="bt-btn-text">Connect BT Printer</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
+            <span id="bt-btn-text">Connect BT</span>
           </button>
           <button class="action-btn print-btn" onclick="printViaBluetooth()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-            <span id="print-btn-text">BT Print Tag</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+            <span id="print-btn-text">BT Print</span>
+          </button>
+          <button class="action-btn usb-btn" onclick="printViaUSB()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
+            <span>USB / Local Print</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Live Preview Tag -->
-    <div class="preview-section">
+    <!-- Live Preview Tag Container -->
+    <div class="preview-section" id="previewContainer">
       <div class="tag size-4x6" id="tag">
         <div class="tag-header">
           <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
@@ -480,7 +505,7 @@
         </div>
 
         <div class="tag-footer" style="text-align: center;">
-          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS. PERISHABLE KEEP REFRIGERATED
+          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
       </div>
     </div>
@@ -541,13 +566,17 @@
       const sizeValue = document.getElementById('tagSize').value;
       const dynamicStyle = document.getElementById('dynamic-print-style');
 
-      if (sizeValue === '3x7') {
-        tagElement.classList.remove('size-4x6');
+      tagElement.classList.remove('size-4x6', 'size-3x7', 'size-3x5');
+
+      if (sizeValue === '3x5') {
+        tagElement.classList.add('size-3x5');
+        dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
+        document.getElementById('print-btn-text').textContent = 'BT Print (3x5)';
+      } else if (sizeValue === '3x7') {
         tagElement.classList.add('size-3x7');
         dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
         document.getElementById('print-btn-text').textContent = 'BT Print (3x7)';
       } else {
-        tagElement.classList.remove('size-3x7');
         tagElement.classList.add('size-4x6');
         dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
         document.getElementById('print-btn-text').textContent = 'BT Print (4x6)';
@@ -622,7 +651,7 @@
 
           bluetoothCharacteristic = characteristic;
           document.getElementById('btConnectBtn').classList.add('connected');
-          document.getElementById('bt-btn-text').textContent = 'Connected: ' + (bluetoothDevice.name || 'Printer');
+          document.getElementById('bt-btn-text').textContent = 'Connected';
         } else {
           if (bluetoothDevice.gatt.connected) {
             bluetoothDevice.gatt.disconnect();
@@ -640,10 +669,10 @@
       bluetoothDevice = null;
       bluetoothCharacteristic = null;
       document.getElementById('btConnectBtn').classList.remove('connected');
-      document.getElementById('bt-btn-text').textContent = 'Connect BT Printer';
+      document.getElementById('bt-btn-text').textContent = 'Connect BT';
     }
 
-    // Render tag to Canvas, prompt copies, and stream ESC/POS bytes over Bluetooth
+    // Bluetooth Printing Handler (ESC/POS Bitmap Stream)
     async function printViaBluetooth() {
       if (!bluetoothCharacteristic) {
         alert('Please connect a Bluetooth thermal printer first.');
@@ -651,7 +680,6 @@
         if (!bluetoothCharacteristic) return;
       }
 
-      // Prompt for number of copies
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
       if (!copiesInput) return;
       const numCopies = parseInt(copiesInput, 10);
@@ -662,8 +690,9 @@
 
       const sizeValue = document.getElementById('tagSize').value;
       const dpi = 203;
-      const widthInches = sizeValue === '3x7' ? 3 : 4;
-      const heightInches = sizeValue === '3x7' ? 7 : 6;
+      let widthInches = 4, heightInches = 6;
+      if (sizeValue === '3x7') { widthInches = 3; heightInches = 7; }
+      else if (sizeValue === '3x5') { widthInches = 3; heightInches = 5; }
       
       const canvasWidth = Math.round(widthInches * dpi);
       const canvasHeight = Math.round(heightInches * dpi);
@@ -673,11 +702,9 @@
       canvas.height = canvasHeight;
       const ctx = canvas.getContext('2d');
 
-      // Draw solid white background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      // Draw outer black border
       ctx.lineWidth = 12;
       ctx.strokeStyle = '#000000';
       ctx.strokeRect(6, 6, canvasWidth - 12, canvasHeight - 12);
@@ -685,26 +712,23 @@
       ctx.fillStyle = '#000000';
       ctx.textBaseline = 'top';
 
-      // Header Text
       ctx.font = 'bold 54px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(document.getElementById('out-biz-name').textContent, canvasWidth / 2, 60);
+      ctx.fillText(document.getElementById('out-biz-name').textContent, canvasWidth / 2, 50);
 
-      ctx.font = 'bold 32px Arial';
-      ctx.fillText('HARVESTER SHELLSTOCK TAG', canvasWidth / 2, 130);
+      ctx.font = 'bold 30px Arial';
+      ctx.fillText('HARVESTER SHELLSTOCK TAG', canvasWidth / 2, 115);
 
-      // Divider Line
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(40, 180);
-      ctx.lineTo(canvasWidth - 40, 180);
+      ctx.moveTo(40, 160);
+      ctx.lineTo(canvasWidth - 40, 160);
       ctx.stroke();
 
-      // Fields Body
-      let currentY = 220;
-      const rowHeight = 130;
-      const leftMargin = 50;
-      const rightMargin = canvasWidth - 50;
+      let currentY = 190;
+      const rowHeight = sizeValue === '3x5' ? 95 : 120;
+      const leftMargin = 45;
+      const rightMargin = canvasWidth - 45;
 
       function drawFieldRow(label1, val1, label2, val2) {
         ctx.lineWidth = 4;
@@ -715,27 +739,24 @@
 
         const halfWidth = (rightMargin - leftMargin) / 2;
 
-        // Col 1
-        ctx.font = 'bold 24px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText(label1.toUpperCase(), leftMargin, currentY + 10);
-        ctx.font = 'bold 38px Arial';
-        ctx.fillText(val1, leftMargin, currentY + 48);
+        ctx.fillText(label1.toUpperCase(), leftMargin, currentY + 8);
+        ctx.font = 'bold 34px Arial';
+        ctx.fillText(val1, leftMargin, currentY + 40);
 
         if (label2) {
-          // Col 2 divider line
           ctx.beginPath();
           ctx.moveTo(leftMargin + halfWidth, currentY);
           ctx.lineTo(leftMargin + halfWidth, currentY + rowHeight);
           ctx.stroke();
 
-          // Col 2 text
-          ctx.font = 'bold 24px Arial';
-          ctx.fillText(label2.toUpperCase(), leftMargin + halfWidth + 20, currentY + 10);
-          ctx.font = 'bold 38px Arial';
-          ctx.fillText(val2, leftMargin + halfWidth + 20, currentY + 48);
+          ctx.font = 'bold 20px Arial';
+          ctx.fillText(label2.toUpperCase(), leftMargin + halfWidth + 15, currentY + 8);
+          ctx.font = 'bold 34px Arial';
+          ctx.fillText(val2, leftMargin + halfWidth + 15, currentY + 40);
         }
-        currentY += rowHeight + 20;
+        currentY += rowHeight + 15;
       }
 
       drawFieldRow('Harvester Cert / Permit #', document.getElementById('out-cert').textContent, 'Grant #', document.getElementById('out-grant').textContent);
@@ -743,20 +764,17 @@
       drawFieldRow('Growing Area / Status', document.getElementById('out-area').textContent, null, null);
       drawFieldRow('Species & Size', document.getElementById('out-species').textContent, 'Quantity', document.getElementById('out-quantity').textContent);
 
-      // Footer
       ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.moveTo(40, canvasHeight - 160);
-      ctx.lineTo(canvasWidth - 40, canvasHeight - 160);
+      ctx.moveTo(40, canvasHeight - 140);
+      ctx.lineTo(canvasWidth - 40, canvasHeight - 140);
       ctx.stroke();
 
-      ctx.font = 'bold 22px Arial';
+      ctx.font = 'bold 19px Arial';
       ctx.textAlign = 'center';
-      
       const footerText = "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.";
-      wrapText(ctx, footerText, canvasWidth / 2, canvasHeight - 130, canvasWidth - 100, 30);
+      wrapText(ctx, footerText, canvasWidth / 2, canvasHeight - 115, canvasWidth - 80, 26);
 
-      // Convert canvas to monochrome raster data
       const imgData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
       const pixels = imgData.data;
       const bytesWidth = Math.ceil(canvasWidth / 8);
@@ -765,11 +783,7 @@
       for (let y = 0; y < canvasHeight; y++) {
         for (let x = 0; x < canvasWidth; x++) {
           const offset = (y * canvasWidth + x) * 4;
-          const r = pixels[offset];
-          const g = pixels[offset + 1];
-          const b = pixels[offset + 2];
-          const gray = (r * 0.299 + g * 0.587 + b * 0.114);
-          
+          const gray = (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114);
           if (gray < 128) {
             const byteIndex = y * bytesWidth + Math.floor(x / 8);
             rasterBytes[byteIndex] |= (128 >> (x % 8));
@@ -794,7 +808,6 @@
       fullPayload.set(rasterBytes, offset); offset += rasterBytes.length;
       fullPayload.set(feedCutCmd, offset);
 
-      // Loop through and print the specified number of copies
       const chunkSize = 512;
       for (let c = 0; c < numCopies; c++) {
         for (let i = 0; i < fullPayload.length; i += chunkSize) {
@@ -806,7 +819,37 @@
         }
       }
 
-      alert(`Successfully sent ${numCopies} copy(ies) to printer!`);
+      alert(`Successfully sent ${numCopies} copy(ies) to Bluetooth printer!`);
+    }
+
+    // Local USB / System Printer Handler (window.print with multi-page DOM replication)
+    function printViaUSB() {
+      const copiesInput = prompt('Enter number of tag copies to print:', '1');
+      if (!copiesInput) return;
+      const numCopies = parseInt(copiesInput, 10);
+      if (isNaN(numCopies) || numCopies <= 0) {
+        alert('Please enter a valid number of copies.');
+        return;
+      }
+
+      const previewContainer = document.getElementById('previewContainer');
+      const originalTag = document.getElementById('tag');
+      
+      // Temporarily create duplicate tag elements for native browser print spooling
+      const clones = [];
+      for (let i = 1; i < numCopies; i++) {
+        const clone = originalTag.cloneNode(true);
+        clone.removeAttribute('id'); // Avoid duplicate IDs
+        previewContainer.appendChild(clone);
+        clones.push(clone);
+      }
+
+      window.print();
+
+      // Clean up clones after print dialog closes
+      setTimeout(() => {
+        clones.forEach(clone => clone.remove());
+      }, 500);
     }
 
     function wrapText(context, text, x, y, maxWidth, lineHeight) {
@@ -815,8 +858,7 @@
       for(let n = 0; n < words.length; n++) {
         const testLine = line + words[n] + ' ';
         const metrics = context.measureText(testLine);
-        const testWidth = metrics.width;
-        if (testWidth > maxWidth && n > 0) {
+        if (metrics.width > maxWidth && n > 0) {
           context.fillText(line, x, y);
           line = words[n] + ' ';
           y += lineHeight;
