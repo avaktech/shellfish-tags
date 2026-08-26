@@ -138,7 +138,7 @@
 
     .usb-btn { background-color: #457b9d; }
 
-    /* Visual Preview Layout matching 3-inch width proportions */
+    /* Visual Preview Layout Proportions */
     .tag {
       background: white;
       border: 3px solid #000;
@@ -152,6 +152,8 @@
     }
     .tag.size-3x5 { width: 3in; height: 5in; min-width: 3in; min-height: 5in; }
     .tag.size-3x7 { width: 3in; height: 7in; min-width: 3in; min-height: 7in; }
+    .tag.size-2-516x7 { width: 2.3125in; height: 7in; min-width: 2.3125in; min-height: 7in; }
+    .tag.size-4x6 { width: 4in; height: 6in; min-width: 4in; min-height: 6in; }
 
     .tag-header {
       text-align: center;
@@ -192,6 +194,21 @@
     .field-label { font-size: 7.5pt; font-weight: 900; width: 100%; }
     .field-value { font-size: 10.5pt; font-weight: 900; margin-top: 3px; width: 100%; }
 
+    /* Oyster Icon Container */
+    .tag-icon-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 4px 0;
+    }
+    .tag-icon {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      /* Optional filter to make regular images punchier/monochrome if desired */
+      filter: grayscale(100%) contrast(200%);
+    }
+
     .tag-footer {
       border-top: 3px solid #000;
       padding-top: 6px;
@@ -216,10 +233,12 @@
       <h2>Harvest Tag Generator (WYSIWYG Raster)</h2>
       <div class="form-grid">
         <div class="form-group full">
-          <label for="tagSize">Tag Size (3" Width)</label>
+          <label for="tagSize">Tag Size Preset</label>
           <select id="tagSize">
-            <option value="3x5">3" x 5" (Compact Thermal)</option>
-            <option value="3x7">3" x 7" (Narrow Thermal)</option>
+            <option value="3x5">3" x 5" (Standard Thermal)</option>
+            <option value="3x7">3" x 7" (Standard Thermal)</option>
+            <option value="2-516x7">2 5/16" x 7" (Narrow Format)</option>
+            <option value="4x6">4" x 6" (Wide Shipping/Tag)</option>
           </select>
         </div>
 
@@ -348,6 +367,12 @@
             </div>
           </div>
         </div>
+
+        <!-- Oyster Icon Positioned Below Last Field, Above Warning Footer -->
+        <div class="tag-icon-container">
+          <img src="oyster-icon.jpeg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z\'/><path d=\'M12 6v12M6 12h12\'/></svg>'">
+        </div>
+
         <div class="tag-footer">
           THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
@@ -359,15 +384,34 @@
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
+      fields.forEach(id => {
+        const saved = localStorage.getItem('tag_' + id);
+        if (saved !== null) {
+          document.getElementById(id).value = saved;
+        }
+      });
+
       const now = new Date();
-      document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
-      document.getElementById('harvestTime').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      if (!document.getElementById('harvestDate').value) {
+        document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
+      }
+      if (!document.getElementById('harvestTime').value) {
+        document.getElementById('harvestTime').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      }
+
       updateTag();
     });
 
     fields.forEach(id => {
-      document.getElementById(id).addEventListener('input', updateTag);
-      document.getElementById(id).addEventListener('change', updateTag);
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        localStorage.setItem('tag_' + id, el.value);
+        updateTag();
+      });
+      el.addEventListener('change', () => {
+        localStorage.setItem('tag_' + id, el.value);
+        updateTag();
+      });
     });
 
     function updateTag() {
@@ -434,7 +478,6 @@
         const height = canvas.height;
         const bytesPerRow = Math.ceil(width / 8);
         
-        // Initialize entire buffer to 0xFF (All White / No Heat)
         const buffer = new Uint8Array(bytesPerRow * height);
         buffer.fill(0xFF);
 
@@ -447,7 +490,6 @@
             
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            // If pixel is dark (text, borders, lines), clear the specific bit to 0 (Burn Dot)
             if (luminance < 140) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
@@ -457,13 +499,25 @@
         }
 
         const sizeVal = document.getElementById('tagSize').value;
-        const heightMm = sizeVal === '3x7' ? 177 : 127;
+        let widthMm = 76;
+        let heightMm = 127;
+
+        if (sizeVal === '3x7') {
+          widthMm = 76;
+          heightMm = 177;
+        } else if (sizeVal === '2-516x7') {
+          widthMm = 58; 
+          heightMm = 177;
+        } else if (sizeVal === '4x6') {
+          widthMm = 102; 
+          heightMm = 152; 
+        }
 
         let tsplHeader = '';
         tsplHeader += `SET TEAR ON\r\n`;
         tsplHeader += `SPEED 3\r\n`;
         tsplHeader += `DENSITY 10\r\n`;
-        tsplHeader += `SIZE 76 mm,${heightMm} mm\r\n`;
+        tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplHeader += `GAP 3 mm,0 mm\r\n`;
         tsplHeader += `DIRECTION 1\r\n`;
         tsplHeader += `CLS\r\n`;
