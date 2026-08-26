@@ -593,7 +593,7 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Serial API Bluetooth Classic Printing Handler with Complete Structural Layout
+    // Fully Dynamic TSPL Layout Engine (Fits any 203/300 DPI printer size proportionally)
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -610,7 +610,7 @@
 
       const sizeValue = document.getElementById('tagSize').value;
       
-      let widthMm = 101.6, heightMm = 152.4; // 4x6 inches default
+      let widthMm = 101.6, heightMm = 152.4; // 4x6 default
       if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
@@ -626,6 +626,13 @@
       const speciesStr = document.getElementById('out-species').textContent;
       const qtyStr = document.getElementById('out-quantity').textContent;
 
+      // Dynamic spacing calculation based on label height
+      const margin = 24;
+      const usableWidth = maxDotsX - (margin * 2);
+      const usableHeight = maxDotsY - (margin * 2);
+      const rowHeight = Math.floor(usableHeight / 7);
+      
+      let currentY = margin;
       let tsplCmds = [];
       
       tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
@@ -634,47 +641,61 @@
       tsplCmds.push(`CLS`);
 
       // 1. Outer Bounding Border Box
-      tsplCmds.push(`BOX 16, 16, ${maxDotsX - 16}, ${maxDotsY - 16}, 3`);
+      tsplCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
 
       // 2. Header Section
-      tsplCmds.push(`TEXT 30, 30, "3", 0, 1, 1, "${bizName}"`);
-      tsplCmds.push(`TEXT 30, 75, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      tsplCmds.push(`BAR 16, 110, ${maxDotsX - 32}, 3`);
+      const headerBoxHeight = rowHeight * 1.3;
+      tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 12}, "3", 0, 1, 1, "${bizName}"`);
+      tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 52}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      currentY += Math.round(headerBoxHeight);
+      tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 3`);
 
-      const midX = Math.round(maxDotsX / 2);
+      // Helper function for 2-column data rows
+      function addTwoColRow(label1, val1, label2, val2) {
+        const boxH = Math.round(rowHeight * 1.1);
+        const colW = Math.floor(usableWidth / 2);
+        const col2X = margin + colW;
+
+        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label1}"`);
+        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val1}"`);
+        
+        tsplCmds.push(`BAR ${col2X}, ${currentY}, 2, ${boxH}`);
+        
+        tsplCmds.push(`TEXT ${col2X + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label2}"`);
+        tsplCmds.push(`TEXT ${col2X + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val2}"`);
+        
+        currentY += boxH;
+        tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
+      }
+
+      // Helper function for single full-width data rows
+      function addSingleRow(label, val) {
+        const boxH = Math.round(rowHeight * 1.1);
+        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label}"`);
+        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val}"`);
+        
+        currentY += boxH;
+        tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
+      }
 
       // 3. Row 1: Cert & Grant
-      tsplCmds.push(`TEXT 30, 125, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
-      tsplCmds.push(`TEXT 30, 148, "2", 0, 1, 1, "${cert}"`);
-      tsplCmds.push(`BAR ${midX}, 113, 2, 80`);
-      tsplCmds.push(`TEXT ${midX + 15}, 125, "1", 0, 1, 1, "GRANT #"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 148, "2", 0, 1, 1, "${grant}"`);
-      tsplCmds.push(`BAR 16, 193, ${maxDotsX - 32}, 2`);
+      addTwoColRow("HARVESTER CERT / PERMIT #", cert, "GRANT #", grant);
 
       // 4. Row 2: Date & Time
-      tsplCmds.push(`TEXT 30, 208, "1", 0, 1, 1, "HARVEST DATE"`);
-      tsplCmds.push(`TEXT 30, 231, "2", 0, 1, 1, "${dateStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 208, "1", 0, 1, 1, "HARVEST TIME"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 231, "2", 0, 1, 1, "${timeStr}"`);
-      tsplCmds.push(`BAR 16, 276, ${maxDotsX - 32}, 2`);
+      addTwoColRow("HARVEST DATE", dateStr, "HARVEST TIME", timeStr);
 
       // 5. Row 3: Growing Area / Status
-      tsplCmds.push(`TEXT 30, 291, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
-      tsplCmds.push(`TEXT 30, 314, "2", 0, 1, 1, "${areaStr}"`);
-      tsplCmds.push(`BAR 16, 359, ${maxDotsX - 32}, 2`);
+      addSingleRow("GROWING AREA / STATUS", areaStr);
 
       // 6. Row 4: Species & Quantity
-      tsplCmds.push(`TEXT 30, 374, "1", 0, 1, 1, "SPECIES & SIZE"`);
-      tsplCmds.push(`TEXT 30, 397, "2", 0, 1, 1, "${speciesStr}"`);
-      tsplCmds.push(`BAR ${midX}, 361, 2, 80`);
-      tsplCmds.push(`TEXT ${midX + 15}, 374, "1", 0, 1, 1, "QUANTITY"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 397, "2", 0, 1, 1, "${qtyStr}"`);
-      tsplCmds.push(`BAR 16, 441, ${maxDotsX - 32}, 3`);
+      addTwoColRow("SPECIES & SIZE", speciesStr, "QUANTITY", qtyStr);
 
       // 7. Footer Regulatory Notice Block
-      tsplCmds.push(`TEXT 30, 470, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT 30, 492, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT 30, 514, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      const footerY = maxDotsY - margin - 65;
+      tsplCmds.push(`BAR ${margin}, ${footerY - 8}, ${usableWidth}, 3`);
+      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 4}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 24}, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 44}, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
       tsplCmds.push(`PRINT 1, ${numCopies}`);
 
