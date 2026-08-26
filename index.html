@@ -166,7 +166,7 @@
     .tag {
       background: white;
       border: 3px solid #000;
-      padding: 0.2in;
+      padding: 0.18in;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -207,7 +207,7 @@
 
     .tag-header h1 {
       margin: 0;
-      font-size: 16pt;
+      font-size: 15pt;
       font-weight: 900;
       letter-spacing: 0.5px;
       line-height: 1.1;
@@ -215,33 +215,33 @@
 
     .tag.size-3x7 .tag-header h1,
     .tag.size-3x5 .tag-header h1 {
-      font-size: 13pt;
+      font-size: 12pt;
     }
 
     .tag-header p {
       margin: 4px 0 0 0;
-      font-size: 10pt;
+      font-size: 9.5pt;
       font-weight: 800;
       letter-spacing: 1px;
     }
 
     .tag.size-3x5 .tag-header p {
-      font-size: 8.5pt;
+      font-size: 8pt;
     }
 
     .tag-body {
       display: flex;
       flex-direction: column;
-      justify-content: space-around;
       flex-grow: 1;
-      padding: 4px 0;
+      justify-content: space-between;
+      padding: 6px 0;
     }
 
     .tag-row {
       display: flex;
       border-bottom: 2px solid #000;
-      padding-bottom: 3px;
-      margin-bottom: 3px;
+      padding-bottom: 4px;
+      margin-bottom: 4px;
     }
 
     .tag-col {
@@ -263,9 +263,9 @@
     }
 
     .field-value {
-      font-size: 11pt;
+      font-size: 10.5pt;
       font-weight: 900;
-      margin-top: 2px;
+      margin-top: 3px;
       word-break: break-word;
       line-height: 1.15;
     }
@@ -274,8 +274,8 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 45px;
-      margin: 2px 0;
+      height: 50px;
+      margin: 4px 0;
     }
 
     .icon-container img {
@@ -286,11 +286,11 @@
 
     .tag-footer {
       border-top: 3px solid #000;
-      padding-top: 4px;
+      padding-top: 6px;
       font-size: 7pt;
       font-weight: 700;
-      text-align: justify;
-      line-height: 1.1;
+      text-align: center;
+      line-height: 1.2;
     }
 
     @media print {
@@ -494,11 +494,12 @@
           </div>
 
           <div class="icon-container" id="icon-box">
-            <img src="oyster-icon.png" alt="Logo" id="oyster-img" crossorigin="anonymous" onerror="this.style.display='none'">
+            <!-- Uses embedded fallback data URI so local image security blocks never fail -->
+            <img src="oyster-icon.png" alt="Logo" id="oyster-img" crossorigin="anonymous" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
           </div>
         </div>
 
-        <div class="tag-footer" style="text-align: center;">
+        <div class="tag-footer">
           THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
       </div>
@@ -592,26 +593,33 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Helper to convert loaded <img> into TSPL BITMAP command payload bytes
+    // Canvas Image Rasterizer for Native TSPL BITMAP Bytes
     async function getTsplBitmapCommand(imgElement, targetX, targetY) {
-      if (!imgElement || imgElement.naturalWidth === 0 || imgElement.style.display === 'none') {
-        return null;
-      }
+      if (!imgElement) return null;
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Scale down width to fit nicely within thermal print limits (~200-240 dots max width)
-        const targetWidth = 180;
-        const scale = targetWidth / imgElement.naturalWidth;
-        const targetHeight = Math.round(imgElement.naturalHeight * scale);
+        // Ensure image source is fully loaded or ready
+        const workingImg = new Image();
+        workingImg.crossOrigin = "anonymous";
+        
+        await new Promise((resolve, reject) => {
+          workingImg.onload = resolve;
+          workingImg.onerror = reject;
+          workingImg.src = imgElement.src;
+        });
+
+        const targetWidth = 160;
+        const scale = targetWidth / workingImg.naturalWidth;
+        const targetHeight = Math.round(workingImg.naturalHeight * scale);
 
         canvas.width = targetWidth;
         canvas.height = targetHeight;
 
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, targetWidth, targetHeight);
-        ctx.drawImage(imgElement, 0, 0, targetWidth, targetHeight);
+        ctx.drawImage(workingImg, 0, 0, targetWidth, targetHeight);
 
         const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const bytesPerRow = Math.ceil(targetWidth / 8);
@@ -629,7 +637,6 @@
                 const g = imgData.data[idx + 1];
                 const b = imgData.data[idx + 2];
                 const avg = (r + g + b) / 3;
-                // Threshold dark pixels (< 128) as black (1), light as white (0)
                 if (avg < 128) {
                   byteVal |= (1 << (7 - bit));
                 }
@@ -643,12 +650,12 @@
         const tsplHeader = `BITMAP ${xPos}, ${targetY}, ${bytesPerRow}, ${targetHeight}, 0, `;
         return { header: tsplHeader, data: bmpBytes };
       } catch (e) {
-        console.warn('Could not generate bitmap for printer:', e);
+        console.warn('Bitmap generation bypassed:', e);
         return null;
       }
     }
 
-    // Fully Dynamic TSPL Layout Engine with pinned footer and bitmap raster support
+    // Serial Print Handler with precise layout positioning & locked footer
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -665,7 +672,7 @@
 
       const sizeValue = document.getElementById('tagSize').value;
       
-      let widthMm = 101.6, heightMm = 152.4; // 4x6 default
+      let widthMm = 101.6, heightMm = 152.4;
       if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
@@ -684,8 +691,8 @@
       const margin = 24;
       const usableWidth = maxDotsX - (margin * 2);
       
-      const headerSpace = 95;
-      const footerSpace = 75; // Locked reserve space for footer
+      const headerSpace = 90;
+      const footerSpace = 65;
       const availableBodyHeight = (maxDotsY - (margin * 2)) - headerSpace - footerSpace;
       const rowHeight = Math.floor(availableBodyHeight / 4);
       
@@ -697,12 +704,12 @@
       tsplTextCmds.push(`DIRECTION 1`);
       tsplTextCmds.push(`CLS`);
 
-      // 1. Outer Bounding Border Box
+      // Outer Bounding Box
       tsplTextCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
 
-      // 2. Header Section
-      tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 12}, "3", 0, 1, 1, "${bizName}"`);
-      tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 52}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      // Header Section
+      tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 10}, "3", 0, 1, 1, "${bizName}"`);
+      tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 48}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
       currentY += headerSpace;
       tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 3`);
 
@@ -710,43 +717,41 @@
         const colW = Math.floor(usableWidth / 2);
         const col2X = margin + colW;
 
-        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label1}"`);
-        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val1}"`);
+        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 8}, "1", 0, 1, 1, "${label1}"`);
+        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 28}, "2", 0, 1, 1, "${val1}"`);
         
         tsplTextCmds.push(`BAR ${col2X}, ${currentY}, 2, ${rowHeight}`);
         
-        tsplTextCmds.push(`TEXT ${col2X + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label2}"`);
-        tsplTextCmds.push(`TEXT ${col2X + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val2}"`);
+        tsplTextCmds.push(`TEXT ${col2X + 10}, ${currentY + 8}, "1", 0, 1, 1, "${label2}"`);
+        tsplTextCmds.push(`TEXT ${col2X + 10}, ${currentY + 28}, "2", 0, 1, 1, "${val2}"`);
         
         currentY += rowHeight;
         tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
       }
 
       function addSingleRow(label, val) {
-        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label}"`);
-        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val}"`);
+        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 8}, "1", 0, 1, 1, "${label}"`);
+        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 28}, "2", 0, 1, 1, "${val}"`);
         
         currentY += rowHeight;
         tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
       }
 
-      // 3. Row 1: Cert & Grant
+      // Rows
       addTwoColRow("HARVESTER CERT / PERMIT #", cert, "GRANT #", grant);
-
-      // 4. Row 2: Date & Time
       addTwoColRow("HARVEST DATE", dateStr, "HARVEST TIME", timeStr);
-
-      // 5. Row 3: Growing Area / Status
       addSingleRow("GROWING AREA / STATUS", areaStr);
-
-      // 6. Row 4: Species & Quantity
       addTwoColRow("SPECIES & SIZE", speciesStr, "QUANTITY", qtyStr);
 
-      // 7. Pinned Footer Regulatory Notice Block (Fixed anchored position at bottom)
+      // Icon placement slot right above pinned footer
+      const iconTargetY = currentY + 4;
+      currentY += 56; // Reserve slot space
+
+      // Locked Absolute Bottom Footer Notice Block
       const footerY = maxDotsY - margin - footerSpace;
-      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 10}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 28}, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 46}, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 8}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL"`);
+      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 26}, "1", 0, 1, 1, "CONTAINER IS EMPTY OR RETAGGED AND"`);
+      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 44}, "1", 0, 1, 1, "THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
       tsplTextCmds.push(`PRINT 1, ${numCopies}`);
 
@@ -759,13 +764,10 @@
         const writer = port.writable.getWriter();
         const encoder = new TextEncoder();
 
-        // Check and send icon bitmap if available
         const imgEl = document.getElementById('oyster-img');
-        const bitmapObj = await getTsplBitmapCommand(imgEl, maxDotsX / 2, currentY + 4);
+        const bitmapObj = await getTsplBitmapCommand(imgEl, maxDotsX / 2, iconTargetY);
 
         if (bitmapObj) {
-          // Send setup + text commands up to the print command, insert bitmap, then print
-          // We split before the PRINT command
           const printCmdIndex = textBlock.lastIndexOf('PRINT');
           const prePrint = textBlock.substring(0, printCmdIndex);
           const postPrint = textBlock.substring(printCmdIndex);
@@ -790,7 +792,7 @@
       }
     }
 
-    // Local USB / System Printer Handler
+    // Local USB / System Print Handler
     function printViaUSB() {
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
       if (!copiesInput) return;
