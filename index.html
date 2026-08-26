@@ -229,7 +229,7 @@
 
   <div class="app-container">
     <div class="form-section no-print">
-      <h2>Harvest Tag Generator (WYSIWYG Raster)</h2>
+      <h2>Harvest Tag Generator (WYSIWYG HTML)</h2>
       <div class="form-grid">
         <div class="form-group full">
           <label for="tagSize">Tag Size Preset</label>
@@ -446,115 +446,41 @@
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
-      const tagElement = document.getElementById('tag');
-      
       try {
-        if (typeof html2canvas === 'undefined') {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
-
-        const canvas = await html2canvas(tagElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        });
-
-        const ctx = canvas.getContext('2d');
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const tagElement = document.getElementById('tag');
         
-        const width = canvas.width;
-        const height = canvas.height;
-        const bytesPerRow = Math.ceil(width / 8);
-        
-        const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF);
-
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const offset = (y * width + x) * 4;
-            const r = imgData.data[offset];
-            const g = imgData.data[offset + 1];
-            const b = imgData.data[offset + 2];
-            
-            const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
-            
-            if (luminance < 140) {
-              const byteIndex = y * bytesPerRow + Math.floor(x / 8);
-              const bitPosition = 7 - (x % 8);
-              buffer[byteIndex] &= ~(1 << bitPosition);
-            }
-          }
-        }
-
-        const sizeVal = document.getElementById('tagSize').value;
-        let widthMm = 76;
-        let heightMm = 127;
-
-        if (sizeVal === '3x7') {
-          widthMm = 76;
-          heightMm = 177;
-        } else if (sizeVal === '2-516x7') {
-          widthMm = 58; 
-          heightMm = 177;
-        } else if (sizeVal === '4x6') {
-          widthMm = 102; 
-          heightMm = 152; 
-        }
-
-        let tsplHeader = '';
-        tsplHeader += `SET TEAR ON\r\n`;
-        tsplHeader += `SPEED 3\r\n`;
-        tsplHeader += `DENSITY 10\r\n`;
-        tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
-        tsplHeader += `GAP 3 mm,0 mm\r\n`;
-        tsplHeader += `DIRECTION 1\r\n`;
-        tsplHeader += `CLS\r\n`;
-        tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
-
-        const headerBytes = new TextEncoder().encode(tsplHeader);
-        const footerBytes = new TextEncoder().encode(`\r\nPRINT ${copies},1\r\n`);
-
-        const totalLength = headerBytes.length + buffer.length + footerBytes.length;
-        const payload = new Uint8Array(totalLength);
-        payload.set(headerBytes, 0);
-        payload.set(buffer, headerBytes.length);
-        payload.set(footerBytes, headerBytes.length + buffer.length);
+        const htmlContent = `
+          <html>
+            <head>
+              <style>
+                body { margin: 0; padding: 5px; font-family: Arial, sans-serif; background: #fff; color: #000; }
+                .tag { width: 100%; border: 3px solid #000; padding: 10px; box-sizing: border-box; text-transform: uppercase; display: flex; flex-direction: column; justify-content: space-between; }
+                .tag-header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 6px; }
+                .tag-header h1 { margin: 0; font-size: 16pt; font-weight: 900; }
+                .tag-header p { margin: 4px 0 0 0; font-size: 11pt; font-weight: 900; }
+                .tag-body { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+                .tag-row { display: flex; border-bottom: 2px solid #000; padding-bottom: 6px; }
+                .tag-col { flex: 1; text-align: center; }
+                .field-label { font-size: 8pt; font-weight: 900; display: block; }
+                .field-value { font-size: 12pt; font-weight: 900; display: block; margin-top: 2px; }
+                .tag-footer { border-top: 3px solid #000; margin-top: 10px; padding-top: 6px; font-size: 8pt; font-weight: 900; text-align: center; }
+              </style>
+            </head>
+            <body>
+              ${tagElement.outerHTML}
+            </body>
+          </html>
+        `;
 
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
         if (isMobile) {
-          // --- RAWBT NATIVE SCHEME BRIDGE (Base64 Binary Payload) ---
-          let binaryString = '';
-          for (let i = 0; i < payload.length; i++) {
-            binaryString += String.fromCharCode(payload[i]);
-          }
-          const base64Data = btoa(binaryString);
-          
-          const rawBtUrl = `rawbt:base64,${base64Data}`;
-          window.location.href = rawBtUrl;
-
+          const base64Html = btoa(unescape(encodeURIComponent(htmlContent)));
+          window.location.href = `rawbt:base64,${base64Html}`;
         } else {
-          // --- DESKTOP / WEB SERIAL AUTO-CONNECT ---
-          let ports = await navigator.serial.getPorts();
-          let port = ports[0];
-
-          if (!port) {
-            port = await navigator.serial.requestPort();
-          }
-
-          await port.open({ baudRate: 115200 });
-          const writer = port.writable.getWriter();
-          await writer.write(payload);
-          await writer.releaseLock();
-          await port.close();
+          alert('Web Serial direct printing fallback: please use mobile RawBT workflow or local browser print.');
         }
-          
+
       } catch (err) {
         console.error(err);
         alert('Print error: ' + err.message);
