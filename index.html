@@ -603,7 +603,7 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Bluetooth Connection Management (Targeting RF-BHS)
+    // Web Bluetooth Connection Management (Accept All Devices for OS-paired RF-BHS)
     async function toggleBluetooth() {
       if (!navigator.bluetooth) {
         alert('Web Bluetooth is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -614,12 +614,8 @@
         if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
           document.getElementById('bt-btn-text').textContent = 'Searching...';
 
-          // Targeted scan filter for RF-BHS
           bluetoothDevice = await navigator.bluetooth.requestDevice({
-            filters: [
-              { namePrefix: 'RF-BHS' },
-              { name: 'RF-BHS' }
-            ],
+            acceptAllDevices: true,
             optionalServices: [
               '000018f0-0000-1000-8000-00805f9b34fb',
               '49535343-fe7d-4ae5-8fa9-9fafd205e455',
@@ -629,7 +625,6 @@
 
           bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
-          // Initiate GATT Server Connection
           const server = await bluetoothDevice.gatt.connect();
           let service = null;
           let characteristic = null;
@@ -684,7 +679,7 @@
       document.getElementById('bt-btn-text').textContent = 'Connect BT';
     }
 
-    // Native TSPL Bluetooth Printing Handler for TSC / RF-BHS Printer
+    // Native TSPL Bluetooth Printing Handler
     async function printViaBluetooth() {
       if (!bluetoothCharacteristic) {
         alert('Please connect a Bluetooth thermal printer first.');
@@ -702,12 +697,10 @@
 
       const sizeValue = document.getElementById('tagSize').value;
       
-      // Define dimensions in millimeters (width, height) for TSPL SIZE command
       let widthMm = 101.6, heightMm = 152.4; // 4x6 inches default
       if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
-      // Extract form values
       const bizName = document.getElementById('out-biz-name').textContent;
       const cert = document.getElementById('out-cert').textContent;
       const grant = document.getElementById('out-grant').textContent;
@@ -724,15 +717,12 @@
       tsplCmds.push(`DIRECTION 1`);
       tsplCmds.push(`CLS`);
 
-      // Outer Border Box
       tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
 
-      // Header Section
       tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
       tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
       tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
 
-      // Row 1: Cert & Grant
       tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
       tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
       
@@ -742,31 +732,26 @@
       tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
       tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      // Row 2: Date & Time
       tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
       tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
       tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
       tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
       tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      // Row 3: Growing Area
       tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
       tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
       tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      // Row 4: Species & Quantity
       tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
       tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
       tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
       tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
       tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
 
-      // Footer text block
       tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
       tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
       tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
-      // Print command execution
       tsplCmds.push(`PRINT 1, ${numCopies}`);
 
       const tsplString = tsplCmds.join('\r\n') + '\r\n';
@@ -782,7 +767,7 @@
       alert(`Successfully sent ${numCopies} copy(ies) natively to printer!`);
     }
 
-    // Local USB / System Printer Handler (window.print with multi-page DOM replication)
+    // Local USB / System Printer Handler
     function printViaUSB() {
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
       if (!copiesInput) return;
