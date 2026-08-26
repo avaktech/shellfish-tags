@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TAG MAKER - RASTER BITMAP</title>
+  <title>TAG MAKER - WYSIWYG RASTER</title>
 
   <!-- iOS / Apple Home Screen Shortcut Config -->
   <link rel="apple-touch-icon" href="oyster-icon.jpg">
@@ -142,7 +142,7 @@
     .tag {
       background: white;
       border: 3px solid #000;
-      padding: 0.4in 0.15in;
+      padding: 0.3in 0.15in;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -194,7 +194,6 @@
     .field-label { font-size: 7.5pt; font-weight: 900; width: 100%; }
     .field-value { font-size: 10.5pt; font-weight: 900; margin-top: 3px; width: 100%; }
 
-    /* Oyster Icon Container */
     .tag-icon-container {
       display: flex;
       justify-content: center;
@@ -229,7 +228,7 @@
 
   <div class="app-container">
     <div class="form-section no-print">
-      <h2>Harvest Tag Generator (WYSIWYG Raster)</h2>
+      <h2>Harvest Tag Generator (WYSIWYG Mode)</h2>
       <div class="form-grid">
         <div class="form-group full">
           <label for="tagSize">Tag Size Preset</label>
@@ -309,13 +308,13 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn" onclick="printNativeTSPL()">
+          <button class="action-btn" onclick="printReliableRaster()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print Instantly (Auto-Connect)</span>
+            <span>Print WYSIWYG via RawBT</span>
           </button>
           <button class="action-btn usb-btn" onclick="window.print()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
-            <span>Local Print</span>
+            <span>Local Browser Print</span>
           </button>
         </div>
       </div>
@@ -367,7 +366,6 @@
           </div>
         </div>
 
-        <!-- Oyster Icon Pointing to oyster-icon.jpg -->
         <div class="tag-icon-container">
           <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z\'/><path d=\'M12 6v12M6 12h12\'/></svg>'">
         </div>
@@ -442,7 +440,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
-    async function printNativeTSPL() {
+    async function printReliableRaster() {
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
@@ -459,6 +457,7 @@
           });
         }
 
+        // Render clean canvas matching exact screen proportions at high contrast
         const canvas = await html2canvas(tagElement, {
           scale: 2,
           useCORS: true,
@@ -470,10 +469,13 @@
         
         const width = canvas.width;
         const height = canvas.height;
+        
+        // Ensure row bytes align to strict multiples of 8 for TSPL decoding frame compliance
         const bytesPerRow = Math.ceil(width / 8);
+        const alignedWidth = bytesPerRow * 8;
         
         const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF);
+        buffer.fill(0xFF); // Initialize canvas white background
 
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
@@ -482,9 +484,10 @@
             const g = imgData.data[offset + 1];
             const b = imgData.data[offset + 2];
             
+            // Standard luminance thresholding for sharp crisp black text lines
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            if (luminance < 140) {
+            if (luminance < 130) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
               buffer[byteIndex] &= ~(1 << bitPosition);
@@ -507,6 +510,7 @@
           heightMm = 152; 
         }
 
+        // Construct standard safe TSPL framing initialization payload
         let tsplHeader = '';
         tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplHeader += `GAP 3 mm,0 mm\r\n`;
@@ -525,32 +529,16 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-        if (isMobile) {
-          let binaryString = '';
-          const chunkSize = 8192;
-          for (let i = 0; i < payload.length; i += chunkSize) {
-            const chunk = payload.subarray(i, i + chunkSize);
-            binaryString += String.fromCharCode.apply(null, chunk);
-          }
-          const base64Data = btoa(binaryString);
-          
-          window.location.href = `rawbt:base64,${base64Data}`;
-        } else {
-          let ports = await navigator.serial.getPorts();
-          let port = ports[0];
-
-          if (!port) {
-            port = await navigator.serial.requestPort();
-          }
-
-          await port.open({ baudRate: 115200 });
-          const writer = port.writable.getWriter();
-          await writer.write(payload);
-          await writer.releaseLock();
-          await port.close();
+        // Chunked encoding string conversion for RawBT Android scheme handler compatibility
+        let binaryString = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.subarray(i, i + chunkSize);
+          binaryString += String.fromCharCode.apply(null, chunk);
         }
+        const base64Data = btoa(binaryString);
+        
+        window.location.href = `rawbt:base64,${base64Data}`;
           
       } catch (err) {
         console.error(err);
