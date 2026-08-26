@@ -118,6 +118,7 @@
       background-color: #fff;
       appearance: none;
       -webkit-appearance: none;
+      text-transform: uppercase;
     }
 
     select {
@@ -172,6 +173,7 @@
       justify-content: space-between;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       transform-origin: top center;
+      text-transform: uppercase;
     }
 
     .tag.size-4x6 {
@@ -207,7 +209,6 @@
       margin: 0;
       font-size: 16pt;
       font-weight: 900;
-      text-transform: uppercase;
       letter-spacing: 0.5px;
       line-height: 1.1;
     }
@@ -258,7 +259,6 @@
     .field-label {
       font-size: 7.5pt;
       font-weight: 800;
-      text-transform: uppercase;
       color: #000;
     }
 
@@ -274,7 +274,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 40px;
+      height: 45px;
       margin: 2px 0;
     }
 
@@ -291,7 +291,6 @@
       font-weight: 700;
       text-align: justify;
       line-height: 1.1;
-      text-transform: uppercase;
     }
 
     @media print {
@@ -495,7 +494,7 @@
           </div>
 
           <div class="icon-container" id="icon-box">
-            <img src="oyster-icon.jpg" alt="Logo" onerror="this.style.display='none'">
+            <img src="oyster-icon.png" alt="Logo" id="oyster-img" crossorigin="anonymous" onerror="this.style.display='none'">
           </div>
         </div>
 
@@ -572,9 +571,9 @@
         dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
       }
 
-      document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
-      document.getElementById('out-cert').textContent = document.getElementById('certNum').value || '--';
-      document.getElementById('out-grant').textContent = document.getElementById('grantNum').value || '--';
+      document.getElementById('out-biz-name').textContent = (document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.').toUpperCase();
+      document.getElementById('out-cert').textContent = (document.getElementById('certNum').value || '--').toUpperCase();
+      document.getElementById('out-grant').textContent = (document.getElementById('grantNum').value || '--').toUpperCase();
       
       const rawDate = document.getElementById('harvestDate').value;
       const rawTime = document.getElementById('harvestTime').value;
@@ -582,18 +581,74 @@
       document.getElementById('out-date').textContent = formatDate(rawDate);
       document.getElementById('out-time').textContent = formatTime(rawTime);
       
-      const area = document.getElementById('growingArea').value || '--';
-      const status = document.getElementById('sanitaryStatus').value || 'Approved';
+      const area = (document.getElementById('growingArea').value || '--').toUpperCase();
+      const status = (document.getElementById('sanitaryStatus').value || 'Approved').toUpperCase();
       document.getElementById('out-area').textContent = `${area} (${status})`;
 
-      const species = document.getElementById('species').value || '--';
-      const sizeGrade = document.getElementById('sizeGrade').value || '--';
+      const species = (document.getElementById('species').value || '--').toUpperCase();
+      const sizeGrade = (document.getElementById('sizeGrade').value || '--').toUpperCase();
       document.getElementById('out-species').textContent = `${species} - ${sizeGrade}`;
 
-      document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
+      document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Fully Dynamic TSPL Layout Engine (Fits any 203/300 DPI printer size proportionally)
+    // Helper to convert loaded <img> into TSPL BITMAP command payload bytes
+    async function getTsplBitmapCommand(imgElement, targetX, targetY) {
+      if (!imgElement || imgElement.naturalWidth === 0 || imgElement.style.display === 'none') {
+        return null;
+      }
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Scale down width to fit nicely within thermal print limits (~200-240 dots max width)
+        const targetWidth = 180;
+        const scale = targetWidth / imgElement.naturalWidth;
+        const targetHeight = Math.round(imgElement.naturalHeight * scale);
+
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(imgElement, 0, 0, targetWidth, targetHeight);
+
+        const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+        const bytesPerRow = Math.ceil(targetWidth / 8);
+        const bmpBytes = new Uint8Array(bytesPerRow * targetHeight);
+
+        let byteIdx = 0;
+        for (let y = 0; y < targetHeight; y++) {
+          for (let x = 0; x < bytesPerRow; x++) {
+            let byteVal = 0;
+            for (let bit = 0; bit < 8; bit++) {
+              const pxX = (x * 8) + bit;
+              if (pxX < targetWidth) {
+                const idx = (y * targetWidth + pxX) * 4;
+                const r = imgData.data[idx];
+                const g = imgData.data[idx + 1];
+                const b = imgData.data[idx + 2];
+                const avg = (r + g + b) / 3;
+                // Threshold dark pixels (< 128) as black (1), light as white (0)
+                if (avg < 128) {
+                  byteVal |= (1 << (7 - bit));
+                }
+              }
+            }
+            bmpBytes[byteIdx++] = byteVal;
+          }
+        }
+
+        const xPos = Math.round(targetX - (targetWidth / 2));
+        const tsplHeader = `BITMAP ${xPos}, ${targetY}, ${bytesPerRow}, ${targetHeight}, 0, `;
+        return { header: tsplHeader, data: bmpBytes };
+      } catch (e) {
+        console.warn('Could not generate bitmap for printer:', e);
+        return null;
+      }
+    }
+
+    // Fully Dynamic TSPL Layout Engine with pinned footer and bitmap raster support
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -626,56 +681,53 @@
       const speciesStr = document.getElementById('out-species').textContent;
       const qtyStr = document.getElementById('out-quantity').textContent;
 
-      // Dynamic spacing calculation based on label height
       const margin = 24;
       const usableWidth = maxDotsX - (margin * 2);
-      const usableHeight = maxDotsY - (margin * 2);
-      const rowHeight = Math.floor(usableHeight / 7);
+      
+      const headerSpace = 95;
+      const footerSpace = 75; // Locked reserve space for footer
+      const availableBodyHeight = (maxDotsY - (margin * 2)) - headerSpace - footerSpace;
+      const rowHeight = Math.floor(availableBodyHeight / 4);
       
       let currentY = margin;
-      let tsplCmds = [];
+      let tsplTextCmds = [];
       
-      tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-      tsplCmds.push(`GAP 2 mm, 0 mm`);
-      tsplCmds.push(`DIRECTION 1`);
-      tsplCmds.push(`CLS`);
+      tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
+      tsplTextCmds.push(`GAP 2 mm, 0 mm`);
+      tsplTextCmds.push(`DIRECTION 1`);
+      tsplTextCmds.push(`CLS`);
 
       // 1. Outer Bounding Border Box
-      tsplCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
+      tsplTextCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
 
       // 2. Header Section
-      const headerBoxHeight = rowHeight * 1.3;
-      tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 12}, "3", 0, 1, 1, "${bizName}"`);
-      tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 52}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      currentY += Math.round(headerBoxHeight);
-      tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 3`);
+      tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 12}, "3", 0, 1, 1, "${bizName}"`);
+      tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 52}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      currentY += headerSpace;
+      tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 3`);
 
-      // Helper function for 2-column data rows
       function addTwoColRow(label1, val1, label2, val2) {
-        const boxH = Math.round(rowHeight * 1.1);
         const colW = Math.floor(usableWidth / 2);
         const col2X = margin + colW;
 
-        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label1}"`);
-        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val1}"`);
+        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label1}"`);
+        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val1}"`);
         
-        tsplCmds.push(`BAR ${col2X}, ${currentY}, 2, ${boxH}`);
+        tsplTextCmds.push(`BAR ${col2X}, ${currentY}, 2, ${rowHeight}`);
         
-        tsplCmds.push(`TEXT ${col2X + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label2}"`);
-        tsplCmds.push(`TEXT ${col2X + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val2}"`);
+        tsplTextCmds.push(`TEXT ${col2X + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label2}"`);
+        tsplTextCmds.push(`TEXT ${col2X + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val2}"`);
         
-        currentY += boxH;
-        tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
+        currentY += rowHeight;
+        tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
       }
 
-      // Helper function for single full-width data rows
       function addSingleRow(label, val) {
-        const boxH = Math.round(rowHeight * 1.1);
-        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label}"`);
-        tsplCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val}"`);
+        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 10}, "1", 0, 1, 1, "${label}"`);
+        tsplTextCmds.push(`TEXT ${margin + 12}, ${currentY + 32}, "2", 0, 1, 1, "${val}"`);
         
-        currentY += boxH;
-        tsplCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
+        currentY += rowHeight;
+        tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
       }
 
       // 3. Row 1: Cert & Grant
@@ -690,24 +742,42 @@
       // 6. Row 4: Species & Quantity
       addTwoColRow("SPECIES & SIZE", speciesStr, "QUANTITY", qtyStr);
 
-      // 7. Footer Regulatory Notice Block
-      const footerY = maxDotsY - margin - 65;
-      tsplCmds.push(`BAR ${margin}, ${footerY - 8}, ${usableWidth}, 3`);
-      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 4}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 24}, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT ${margin + 12}, ${footerY + 44}, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      // 7. Pinned Footer Regulatory Notice Block (Fixed anchored position at bottom)
+      const footerY = maxDotsY - margin - footerSpace;
+      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 10}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 28}, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplTextCmds.push(`TEXT ${margin + 12}, ${footerY + 46}, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
-      tsplCmds.push(`PRINT 1, ${numCopies}`);
+      tsplTextCmds.push(`PRINT 1, ${numCopies}`);
 
-      const tsplString = tsplCmds.join('\r\n') + '\r\n';
+      const textBlock = tsplTextCmds.join('\r\n') + '\r\n';
 
       try {
         const port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
 
-        const encoder = new TextEncoder();
         const writer = port.writable.getWriter();
-        await writer.write(encoder.encode(tsplString));
+        const encoder = new TextEncoder();
+
+        // Check and send icon bitmap if available
+        const imgEl = document.getElementById('oyster-img');
+        const bitmapObj = await getTsplBitmapCommand(imgEl, maxDotsX / 2, currentY + 4);
+
+        if (bitmapObj) {
+          // Send setup + text commands up to the print command, insert bitmap, then print
+          // We split before the PRINT command
+          const printCmdIndex = textBlock.lastIndexOf('PRINT');
+          const prePrint = textBlock.substring(0, printCmdIndex);
+          const postPrint = textBlock.substring(printCmdIndex);
+
+          await writer.write(encoder.encode(prePrint));
+          await writer.write(encoder.encode(bitmapObj.header));
+          await writer.write(bitmapObj.data);
+          await writer.write(encoder.encode('\r\n' + postPrint));
+        } else {
+          await writer.write(encoder.encode(textBlock));
+        }
+
         await writer.releaseLock();
         await port.close();
 
