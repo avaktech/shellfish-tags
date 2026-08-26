@@ -529,12 +529,15 @@
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
         if (isMobile) {
-          // --- ANDROID INTENT BRIDGE (Direct Component Target to bypass Play Store prompt) ---
-          const blob = new Blob([payload], { type: 'application/octet-stream' });
-          const blobUrl = URL.createObjectURL(blob);
+          // --- RAWBT NATIVE SCHEME BRIDGE (Base64 Binary Payload) ---
+          let binaryString = '';
+          for (let i = 0; i < payload.length; i++) {
+            binaryString += String.fromCharCode(payload[i]);
+          }
+          const base64Data = btoa(binaryString);
           
-          const intentUrl = `intent:${blobUrl}#Intent;scheme=http;package=ru.a402d.rawbtprinter;component=ru.a402d.rawbtprinter/.activity.PrintDownloadActivity;end;`;
-          window.location.href = intentUrl;
+          const rawBtUrl = `rawbt:base64,${base64Data}`;
+          window.location.href = rawBtUrl;
 
         } else {
           // --- DESKTOP / WEB SERIAL AUTO-CONNECT ---
