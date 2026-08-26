@@ -593,7 +593,7 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Serial API Bluetooth Classic Printing Handler with Aligned Spacing
+    // Web Serial API Bluetooth Classic Printing Handler with Complete Structural Layout
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -633,47 +633,48 @@
       tsplCmds.push(`DIRECTION 1`);
       tsplCmds.push(`CLS`);
 
-      // Outer bounding container border
+      // 1. Outer Bounding Border Box
       tsplCmds.push(`BOX 16, 16, ${maxDotsX - 16}, ${maxDotsY - 16}, 3`);
 
-      // Header block
+      // 2. Header Section
       tsplCmds.push(`TEXT 30, 30, "3", 0, 1, 1, "${bizName}"`);
       tsplCmds.push(`TEXT 30, 75, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      tsplCmds.push(`BAR 16, 110, ${maxDotsX - 32}, 2`);
+      tsplCmds.push(`BAR 16, 110, ${maxDotsX - 32}, 3`);
 
-      // Row 1: Cert & Grant
+      const midX = Math.round(maxDotsX / 2);
+
+      // 3. Row 1: Cert & Grant
       tsplCmds.push(`TEXT 30, 125, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
       tsplCmds.push(`TEXT 30, 148, "2", 0, 1, 1, "${cert}"`);
-      
-      const midX = Math.round(maxDotsX / 2);
-      tsplCmds.push(`BAR ${midX}, 115, 2, 75`);
+      tsplCmds.push(`BAR ${midX}, 113, 2, 80`);
       tsplCmds.push(`TEXT ${midX + 15}, 125, "1", 0, 1, 1, "GRANT #"`);
       tsplCmds.push(`TEXT ${midX + 15}, 148, "2", 0, 1, 1, "${grant}"`);
-      tsplCmds.push(`BAR 16, 190, ${maxDotsX - 32}, 2`);
+      tsplCmds.push(`BAR 16, 193, ${maxDotsX - 32}, 2`);
 
-      // Row 2: Date & Time
-      tsplCmds.push(`TEXT 30, 205, "1", 0, 1, 1, "HARVEST DATE"`);
-      tsplCmds.push(`TEXT 30, 228, "2", 0, 1, 1, "${dateStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 205, "1", 0, 1, 1, "HARVEST TIME"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 228, "2", 0, 1, 1, "${timeStr}"`);
-      tsplCmds.push(`BAR 16, 270, ${maxDotsX - 32}, 2`);
+      // 4. Row 2: Date & Time
+      tsplCmds.push(`TEXT 30, 208, "1", 0, 1, 1, "HARVEST DATE"`);
+      tsplCmds.push(`TEXT 30, 231, "2", 0, 1, 1, "${dateStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 208, "1", 0, 1, 1, "HARVEST TIME"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 231, "2", 0, 1, 1, "${timeStr}"`);
+      tsplCmds.push(`BAR 16, 276, ${maxDotsX - 32}, 2`);
 
-      // Row 3: Growing Area
-      tsplCmds.push(`TEXT 30, 285, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
-      tsplCmds.push(`TEXT 30, 308, "2", 0, 1, 1, "${areaStr}"`);
-      tsplCmds.push(`BAR 16, 350, ${maxDotsX - 32}, 2`);
+      // 5. Row 3: Growing Area / Status
+      tsplCmds.push(`TEXT 30, 291, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
+      tsplCmds.push(`TEXT 30, 314, "2", 0, 1, 1, "${areaStr}"`);
+      tsplCmds.push(`BAR 16, 359, ${maxDotsX - 32}, 2`);
 
-      // Row 4: Species & Quantity
-      tsplCmds.push(`TEXT 30, 365, "1", 0, 1, 1, "SPECIES & SIZE"`);
-      tsplCmds.push(`TEXT 30, 388, "2", 0, 1, 1, "${speciesStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 365, "1", 0, 1, 1, "QUANTITY"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 388, "2", 0, 1, 1, "${qtyStr}"`);
-      tsplCmds.push(`BAR 16, 430, ${maxDotsX - 32}, 2`);
+      // 6. Row 4: Species & Quantity
+      tsplCmds.push(`TEXT 30, 374, "1", 0, 1, 1, "SPECIES & SIZE"`);
+      tsplCmds.push(`TEXT 30, 397, "2", 0, 1, 1, "${speciesStr}"`);
+      tsplCmds.push(`BAR ${midX}, 361, 2, 80`);
+      tsplCmds.push(`TEXT ${midX + 15}, 374, "1", 0, 1, 1, "QUANTITY"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 397, "2", 0, 1, 1, "${qtyStr}"`);
+      tsplCmds.push(`BAR 16, 441, ${maxDotsX - 32}, 3`);
 
-      // Footer Warning Text Block
-      tsplCmds.push(`TEXT 30, 455, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT 30, 475, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT 30, 495, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      // 7. Footer Regulatory Notice Block
+      tsplCmds.push(`TEXT 30, 470, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplCmds.push(`TEXT 30, 492, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplCmds.push(`TEXT 30, 514, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
       tsplCmds.push(`PRINT 1, ${numCopies}`);
 
