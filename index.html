@@ -157,7 +157,6 @@
 
     .bt-btn { background-color: #2a9d8f; }
     .bt-btn:active { background-color: #21867a; }
-    .bt-btn.connected { background-color: #e76f51; }
 
     .usb-btn { background-color: #457b9d; }
     .usb-btn:active { background-color: #1d3557; }
@@ -434,13 +433,9 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn bt-btn" id="btConnectBtn" onclick="toggleBluetooth()">
+          <button class="action-btn bt-btn" onclick="printViaWebSerial()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span id="bt-btn-text">Connect BT</span>
-          </button>
-          <button class="action-btn print-btn" onclick="printViaBluetooth()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-            <span id="print-btn-text">BT Print</span>
+            <span id="bt-btn-text">BT Serial Print</span>
           </button>
           <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -513,8 +508,6 @@
 
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
-    let bluetoothDevice = null;
-    let bluetoothCharacteristic = null;
 
     window.addEventListener('DOMContentLoaded', () => {
       fields.forEach(id => {
@@ -571,15 +564,12 @@
       if (sizeValue === '3x5') {
         tagElement.classList.add('size-3x5');
         dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
-        document.getElementById('print-btn-text').textContent = 'BT Print (3x5)';
       } else if (sizeValue === '3x7') {
         tagElement.classList.add('size-3x7');
         dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
-        document.getElementById('print-btn-text').textContent = 'BT Print (3x7)';
       } else {
         tagElement.classList.add('size-4x6');
         dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
-        document.getElementById('print-btn-text').textContent = 'BT Print (4x6)';
       }
 
       document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
@@ -603,88 +593,11 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Bluetooth Connection Management (Accept All Devices for OS-paired RF-BHS)
-    async function toggleBluetooth() {
-      if (!navigator.bluetooth) {
-        alert('Web Bluetooth is not supported on this browser. Please use Chrome on Android or Desktop.');
+    // Web Serial API Bluetooth Classic Printing Handler
+    async function printViaWebSerial() {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
         return;
-      }
-
-      try {
-        if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
-          document.getElementById('bt-btn-text').textContent = 'Searching...';
-
-          bluetoothDevice = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [
-              '000018f0-0000-1000-8000-00805f9b34fb',
-              '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-              '0000ff00-0000-1000-8000-00805f9b34fb'
-            ]
-          });
-
-          bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
-          const server = await bluetoothDevice.gatt.connect();
-          let service = null;
-          let characteristic = null;
-
-          const services = await server.getPrimaryServices();
-          for (let s of services) {
-            try {
-              const chars = await s.getCharacteristics();
-              for (let c of chars) {
-                if (c.properties.write || c.properties.writeWithoutResponse) {
-                  service = s;
-                  characteristic = c;
-                  break;
-                }
-              }
-              if (characteristic) break;
-            } catch (err) {
-              // Skip restricted system GATT services
-            }
-          }
-
-          if (!characteristic) {
-            throw new Error('No writable Bluetooth characteristic found on this device.');
-          }
-
-          bluetoothCharacteristic = characteristic;
-          document.getElementById('btConnectBtn').classList.add('connected');
-          document.getElementById('bt-btn-text').textContent = 'Connected';
-        } else {
-          if (bluetoothDevice.gatt.connected) {
-            bluetoothDevice.gatt.disconnect();
-          }
-          onDisconnected();
-        }
-      } catch (error) {
-        console.error(error);
-        
-        if (error.name === 'NotFoundError') {
-          onDisconnected();
-          return;
-        }
-
-        alert('Bluetooth error: ' + error.message);
-        onDisconnected();
-      }
-    }
-
-    function onDisconnected() {
-      bluetoothDevice = null;
-      bluetoothCharacteristic = null;
-      document.getElementById('btConnectBtn').classList.remove('connected');
-      document.getElementById('bt-btn-text').textContent = 'Connect BT';
-    }
-
-    // Native TSPL Bluetooth Printing Handler
-    async function printViaBluetooth() {
-      if (!bluetoothCharacteristic) {
-        alert('Please connect a Bluetooth thermal printer first.');
-        await toggleBluetooth();
-        if (!bluetoothCharacteristic) return;
       }
 
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
@@ -755,16 +668,25 @@
       tsplCmds.push(`PRINT 1, ${numCopies}`);
 
       const tsplString = tsplCmds.join('\r\n') + '\r\n';
-      const encoder = new TextEncoder();
-      const fullPayload = encoder.encode(tsplString);
 
-      const chunkSize = 512;
-      for (let i = 0; i < fullPayload.length; i += chunkSize) {
-        const chunk = fullPayload.slice(i, i + chunkSize);
-        await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
+      try {
+        // Prompt user to pick their paired Bluetooth Serial port
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const encoder = new TextEncoder();
+        const writer = port.writable.getWriter();
+        await writer.write(encoder.encode(tsplString));
+        await writer.releaseLock();
+        await port.close();
+
+        alert(`Successfully sent ${numCopies} copy(ies) via Bluetooth Serial!`);
+      } catch (error) {
+        console.error(error);
+        if (error.name !== 'NotFoundError') {
+          alert('Serial print error: ' + error.message);
+        }
       }
-
-      alert(`Successfully sent ${numCopies} copy(ies) natively to printer!`);
     }
 
     // Local USB / System Printer Handler
