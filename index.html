@@ -528,48 +528,14 @@
 
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        if (isMobile || !('serial' in navigator)) {
-          // --- ANDROID / WEB BLUETOOTH AUTO-CONNECT ---
-          if (!('bluetooth' in navigator)) {
-            alert('Web Bluetooth is not supported on this device.');
-            return;
-          }
-
-          // Check if browser already memorized a paired device
-          let devices = await navigator.bluetooth.getDevices();
-          let device = devices.find(d => d.name && d.name.toLowerCase().includes('alpha') || d.name && d.name.toLowerCase().includes('tsc')) || devices[0];
-
-          if (!device) {
-            // First time only: popup will ask to pair
-            device = await navigator.bluetooth.requestDevice({
-              acceptAllDevices: true,
-              optionalServices: ['00001101-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
-            });
-          }
-
-          const server = await device.gatt.connect();
-          let service;
-          try {
-            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-          } catch (e) {
-            const services = await server.getPrimaryServices();
-            service = services[0];
-          }
-
-          const characteristics = await service.getCharacteristics();
-          const writableChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
-
-          if (!writableChar) throw new Error('No writable characteristic found.');
-
-          const CHUNK_SIZE = 512;
-          for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
-            const chunk = payload.slice(i, i + CHUNK_SIZE);
-            if (writableChar.properties.writeWithoutResponse) {
-              await writableChar.writeValueWithoutResponse(chunk);
-            } else {
-              await writableChar.writeValue(chunk);
-            }
-          }
+        if (isMobile) {
+          // --- ANDROID INTENT BRIDGE (RawBT / Bluetooth Classic) ---
+          const blob = new Blob([payload], { type: 'application/octet-stream' });
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Construct explicit Android Intent string targeting RawBT app package
+          const intentUrl = `intent:${blobUrl}#Intent;scheme=http;package=ru.a402d.rawbtprinter;end;`;
+          window.location.href = intentUrl;
 
         } else {
           // --- DESKTOP / WEB SERIAL AUTO-CONNECT ---
@@ -577,7 +543,6 @@
           let port = ports[0];
 
           if (!port) {
-            // First time only: popup will ask to select port
             port = await navigator.serial.requestPort();
           }
 
@@ -590,12 +555,7 @@
           
       } catch (err) {
         console.error(err);
-        // If auto-connect fails because the device changed or isn't paired, force fresh request
-        if (err.name === 'NotFoundError' || err.message.includes('No port')) {
-           alert('Please re-pair or select your printer once to re-establish auto-connection.');
-        } else {
-           alert('Print error: ' + err.message);
-        }
+        alert('Print error: ' + err.message);
       }
     }
   </script>
