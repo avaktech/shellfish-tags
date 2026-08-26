@@ -508,11 +508,10 @@
         }
 
         let tsplHeader = '';
-        tsplHeader += `SET TEAR ON\r\n`;
-        tsplHeader += `SPEED 3\r\n`;
-        tsplHeader += `DENSITY 10\r\n`;
         tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplHeader += `GAP 3 mm,0 mm\r\n`;
+        tsplHeader += `SPEED 3\r\n`;
+        tsplHeader += `DENSITY 10\r\n`;
         tsplHeader += `DIRECTION 1\r\n`;
         tsplHeader += `CLS\r\n`;
         tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
