@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TAG MAKER - WYSIWYG RASTER</title>
+  <title>TAG MAKER - WEB BLUETOOTH WYSIWYG</title>
 
   <!-- iOS / Apple Home Screen Shortcut Config -->
   <link rel="apple-touch-icon" href="oyster-icon.jpg">
@@ -228,7 +228,7 @@
 
   <div class="app-container">
     <div class="form-section no-print">
-      <h2>Harvest Tag Generator (WYSIWYG Mode)</h2>
+      <h2>Harvest Tag Generator (Web Bluetooth)</h2>
       <div class="form-grid">
         <div class="form-group full">
           <label for="tagSize">Tag Size Preset</label>
@@ -308,9 +308,9 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn" onclick="printReliableRaster()">
+          <button class="action-btn" onclick="printViaWebBluetooth()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print WYSIWYG via RawBT</span>
+            <span>Print via Web Bluetooth</span>
           </button>
           <button class="action-btn usb-btn" onclick="window.print()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -440,7 +440,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
-    async function printReliableRaster() {
+    async function printViaWebBluetooth() {
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
@@ -457,7 +457,6 @@
           });
         }
 
-        // Render clean canvas matching exact screen proportions at high contrast
         const canvas = await html2canvas(tagElement, {
           scale: 2,
           useCORS: true,
@@ -469,13 +468,10 @@
         
         const width = canvas.width;
         const height = canvas.height;
-        
-        // Ensure row bytes align to strict multiples of 8 for TSPL decoding frame compliance
         const bytesPerRow = Math.ceil(width / 8);
-        const alignedWidth = bytesPerRow * 8;
         
         const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF); // Initialize canvas white background
+        buffer.fill(0xFF);
 
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
@@ -484,7 +480,6 @@
             const g = imgData.data[offset + 1];
             const b = imgData.data[offset + 2];
             
-            // Standard luminance thresholding for sharp crisp black text lines
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
             if (luminance < 130) {
@@ -510,7 +505,6 @@
           heightMm = 152; 
         }
 
-        // Construct standard safe TSPL framing initialization payload
         let tsplHeader = '';
         tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplHeader += `GAP 3 mm,0 mm\r\n`;
@@ -529,20 +523,59 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
-        // Chunked encoding string conversion for RawBT Android scheme handler compatibility
-        let binaryString = '';
-        const chunkSize = 8192;
+        if (!navigator.bluetooth) {
+          alert('Web Bluetooth is not supported on this browser or device.');
+          return;
+        }
+
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+          ]
+        });
+
+        const server = await device.gatt.connect();
+        let targetCharacteristic = null;
+        
+        const services = await server.getPrimaryServices();
+        for (const service of services) {
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                targetCharacteristic = char;
+                break;
+              }
+            }
+            if (targetCharacteristic) break;
+          } catch (e) {
+            // Skip restricted services
+          }
+        }
+
+        if (!targetCharacteristic) {
+          throw new Error('Could not find a writable Bluetooth printing characteristic on this device.');
+        }
+
+        const chunkSize = 512;
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.subarray(i, i + chunkSize);
-          binaryString += String.fromCharCode.apply(null, chunk);
+          if (targetCharacteristic.properties.writeWithoutResponse) {
+            await targetCharacteristic.writeValueWithoutResponse(chunk);
+          } else {
+            await targetCharacteristic.writeValue(chunk);
+          }
         }
-        const base64Data = btoa(binaryString);
-        
-        window.location.href = `rawbt:base64,${base64Data}`;
+
+        server.disconnect();
+        alert('Print job sent successfully via Web Bluetooth!');
           
       } catch (err) {
         console.error(err);
-        alert('Print error: ' + err.message);
+        alert('Bluetooth Print Error: ' + err.message);
       }
     }
   </script>
