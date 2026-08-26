@@ -592,7 +592,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Web Serial Print Handler (Pure Text & Direct Commands)
+    // Web Serial Print Handler (Forced TSPL Mode & Flow Control Disabled)
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -636,7 +636,11 @@
       let currentY = margin;
       let tsplTextCmds = [];
       
-      // Strict TSPL Initialization Header
+      // Force TSPL Language Mode & Clear Buffer
+      tsplTextCmds.push(`SET LANGUAGE TSPL`);
+      tsplTextCmds.push(`CLS`);
+
+      // Configuration & Sensor Setup
       tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
       tsplTextCmds.push(`GAP 3 mm, 0 mm`);
       tsplTextCmds.push(`SPEED 3`);
@@ -644,7 +648,6 @@
       tsplTextCmds.push(`DIRECTION 1`);
       tsplTextCmds.push(`REFERENCE 0,0`);
       tsplTextCmds.push(`SHIFT 0`);
-      tsplTextCmds.push(`CLS`);
 
       // Outer Bounding Box
       tsplTextCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
@@ -685,7 +688,7 @@
       addSingleRow("GROWING AREA / STATUS", areaStr);
       addTwoColRow("SPECIES & SIZE", speciesStr, "QUANTITY", qtyStr);
 
-      // Locked Absolute Bottom Footer Notice Block
+      // Footer Notice Block
       const footerY = maxDotsY - margin - footerSpace;
       tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 8}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL"`);
       tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 26}, "1", 0, 1, 1, "CONTAINER IS EMPTY OR RETAGGED AND"`);
@@ -698,7 +701,14 @@
 
       try {
         const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
+        
+        await port.open({ 
+          baudRate: 115200,
+          dataBits: 8,
+          stopBits: 1,
+          parity: 'none',
+          flowControl: 'none'
+        });
 
         const writer = port.writable.getWriter();
         await writer.write(encoder.encode(textBlock));
