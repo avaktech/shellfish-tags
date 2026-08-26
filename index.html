@@ -494,8 +494,7 @@
           </div>
 
           <div class="icon-container" id="icon-box">
-            <!-- Uses embedded fallback data URI so local image security blocks never fail -->
-            <img src="oyster-icon.png" alt="Logo" id="oyster-img" crossorigin="anonymous" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
+            <img src="oyster-icon.png" alt="Oyster Logo" id="oyster-img" crossorigin="anonymous" onerror="this.style.display='none'">
           </div>
         </div>
 
@@ -593,33 +592,25 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Canvas Image Rasterizer for Native TSPL BITMAP Bytes
-    async function getTsplBitmapCommand(imgElement, targetX, targetY) {
-      if (!imgElement) return null;
+    // Direct Synchronous Canvas Rasterizer for TSPL BITMAP Bytes
+    function getTsplBitmapCommand(imgElement, targetX, targetY) {
+      if (!imgElement || imgElement.style.display === 'none' || imgElement.naturalWidth === 0) {
+        return null;
+      }
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Ensure image source is fully loaded or ready
-        const workingImg = new Image();
-        workingImg.crossOrigin = "anonymous";
-        
-        await new Promise((resolve, reject) => {
-          workingImg.onload = resolve;
-          workingImg.onerror = reject;
-          workingImg.src = imgElement.src;
-        });
-
         const targetWidth = 160;
-        const scale = targetWidth / workingImg.naturalWidth;
-        const targetHeight = Math.round(workingImg.naturalHeight * scale);
+        const scale = targetWidth / imgElement.naturalWidth;
+        const targetHeight = Math.round(imgElement.naturalHeight * scale);
 
         canvas.width = targetWidth;
         canvas.height = targetHeight;
 
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, targetWidth, targetHeight);
-        ctx.drawImage(workingImg, 0, 0, targetWidth, targetHeight);
+        ctx.drawImage(imgElement, 0, 0, targetWidth, targetHeight);
 
         const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
         const bytesPerRow = Math.ceil(targetWidth / 8);
@@ -655,7 +646,7 @@
       }
     }
 
-    // Serial Print Handler with precise layout positioning & locked footer
+    // Web Serial Print Handler
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -745,7 +736,7 @@
 
       // Icon placement slot right above pinned footer
       const iconTargetY = currentY + 4;
-      currentY += 56; // Reserve slot space
+      currentY += 56;
 
       // Locked Absolute Bottom Footer Notice Block
       const footerY = maxDotsY - margin - footerSpace;
@@ -765,7 +756,7 @@
         const encoder = new TextEncoder();
 
         const imgEl = document.getElementById('oyster-img');
-        const bitmapObj = await getTsplBitmapCommand(imgEl, maxDotsX / 2, iconTargetY);
+        const bitmapObj = getTsplBitmapCommand(imgEl, maxDotsX / 2, iconTargetY);
 
         if (bitmapObj) {
           const printCmdIndex = textBlock.lastIndexOf('PRINT');
