@@ -690,6 +690,7 @@
       let currentY = margin;
       let tsplTextCmds = [];
       
+      // Clean buffer reset and sizing configuration
       tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
       tsplTextCmds.push(`GAP 2 mm, 0 mm`);
       tsplTextCmds.push(`DIRECTION 1`);
@@ -747,14 +748,14 @@
       tsplTextCmds.push(`PRINT 1, ${numCopies}`);
 
       const textBlock = tsplTextCmds.join('\r\n') + '\r\n';
+      const encoder = new TextEncoder();
 
       try {
         const port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
 
         const writer = port.writable.getWriter();
-        const encoder = new TextEncoder();
-
+        
         const imgEl = document.getElementById('oyster-img');
         const bitmapObj = getTsplBitmapCommand(imgEl, maxDotsX / 2, iconTargetY);
 
