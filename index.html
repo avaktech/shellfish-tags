@@ -593,7 +593,7 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Serial API Bluetooth Classic Printing Handler
+    // Web Serial API Bluetooth Classic Printing Handler with Aligned Spacing
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -614,6 +614,9 @@
       if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
+      const maxDotsX = Math.round(widthMm * 8);
+      const maxDotsY = Math.round(heightMm * 8);
+
       const bizName = document.getElementById('out-biz-name').textContent;
       const cert = document.getElementById('out-cert').textContent;
       const grant = document.getElementById('out-grant').textContent;
@@ -630,47 +633,53 @@
       tsplCmds.push(`DIRECTION 1`);
       tsplCmds.push(`CLS`);
 
-      tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
+      // Outer bounding container border
+      tsplCmds.push(`BOX 16, 16, ${maxDotsX - 16}, ${maxDotsY - 16}, 3`);
 
-      tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
-      tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
+      // Header block
+      tsplCmds.push(`TEXT 30, 30, "3", 0, 1, 1, "${bizName}"`);
+      tsplCmds.push(`TEXT 30, 75, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      tsplCmds.push(`BAR 16, 110, ${maxDotsX - 32}, 2`);
 
-      tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
-      tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
+      // Row 1: Cert & Grant
+      tsplCmds.push(`TEXT 30, 125, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
+      tsplCmds.push(`TEXT 30, 148, "2", 0, 1, 1, "${cert}"`);
       
-      const midX = Math.round((widthMm * 8) / 2);
-      tsplCmds.push(`BAR ${midX}, 140, 3, 90`);
-      tsplCmds.push(`TEXT ${midX + 15}, 150, "1", 0, 1, 1, "GRANT #"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
-      tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
+      const midX = Math.round(maxDotsX / 2);
+      tsplCmds.push(`BAR ${midX}, 115, 2, 75`);
+      tsplCmds.push(`TEXT ${midX + 15}, 125, "1", 0, 1, 1, "GRANT #"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 148, "2", 0, 1, 1, "${grant}"`);
+      tsplCmds.push(`BAR 16, 190, ${maxDotsX - 32}, 2`);
 
-      tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
-      tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
-      tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
+      // Row 2: Date & Time
+      tsplCmds.push(`TEXT 30, 205, "1", 0, 1, 1, "HARVEST DATE"`);
+      tsplCmds.push(`TEXT 30, 228, "2", 0, 1, 1, "${dateStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 205, "1", 0, 1, 1, "HARVEST TIME"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 228, "2", 0, 1, 1, "${timeStr}"`);
+      tsplCmds.push(`BAR 16, 270, ${maxDotsX - 32}, 2`);
 
-      tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
-      tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
-      tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
+      // Row 3: Growing Area
+      tsplCmds.push(`TEXT 30, 285, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
+      tsplCmds.push(`TEXT 30, 308, "2", 0, 1, 1, "${areaStr}"`);
+      tsplCmds.push(`BAR 16, 350, ${maxDotsX - 32}, 2`);
 
-      tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
-      tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
-      tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
+      // Row 4: Species & Quantity
+      tsplCmds.push(`TEXT 30, 365, "1", 0, 1, 1, "SPECIES & SIZE"`);
+      tsplCmds.push(`TEXT 30, 388, "2", 0, 1, 1, "${speciesStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 365, "1", 0, 1, 1, "QUANTITY"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 388, "2", 0, 1, 1, "${qtyStr}"`);
+      tsplCmds.push(`BAR 16, 430, ${maxDotsX - 32}, 2`);
 
-      tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      // Footer Warning Text Block
+      tsplCmds.push(`TEXT 30, 455, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplCmds.push(`TEXT 30, 475, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplCmds.push(`TEXT 30, 495, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
       tsplCmds.push(`PRINT 1, ${numCopies}`);
 
       const tsplString = tsplCmds.join('\r\n') + '\r\n';
 
       try {
-        // Prompt user to pick their paired Bluetooth Serial port
         const port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
 
