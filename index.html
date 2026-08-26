@@ -672,7 +672,7 @@
       document.getElementById('bt-btn-text').textContent = 'Connect BT';
     }
 
-    // Bluetooth Printing Handler (ESC/POS Bitmap Stream)
+    // Native TSPL Bluetooth Printing Handler for TSC Alpha 3RB
     async function printViaBluetooth() {
       if (!bluetoothCharacteristic) {
         alert('Please connect a Bluetooth thermal printer first.');
@@ -689,137 +689,85 @@
       }
 
       const sizeValue = document.getElementById('tagSize').value;
-      const dpi = 203;
-      let widthInches = 4, heightInches = 6;
-      if (sizeValue === '3x7') { widthInches = 3; heightInches = 7; }
-      else if (sizeValue === '3x5') { widthInches = 3; heightInches = 5; }
       
-      const canvasWidth = Math.round(widthInches * dpi);
-      const canvasHeight = Math.round(heightInches * dpi);
+      // Define dimensions in millimeters (width, height) for TSPL SIZE command
+      let widthMm = 101.6, heightMm = 152.4; // 4x6 inches default
+      if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
+      else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-      const ctx = canvas.getContext('2d');
+      // Extract form values
+      const bizName = document.getElementById('out-biz-name').textContent;
+      const cert = document.getElementById('out-cert').textContent;
+      const grant = document.getElementById('out-grant').textContent;
+      const dateStr = document.getElementById('out-date').textContent;
+      const timeStr = document.getElementById('out-time').textContent;
+      const areaStr = document.getElementById('out-area').textContent;
+      const speciesStr = document.getElementById('out-species').textContent;
+      const qtyStr = document.getElementById('out-quantity').textContent;
 
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      let tsplCmds = [];
+      
+      tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
+      tsplCmds.push(`GAP 2 mm, 0 mm`);
+      tsplCmds.push(`DIRECTION 1`);
+      tsplCmds.push(`CLS`);
 
-      ctx.lineWidth = 12;
-      ctx.strokeStyle = '#000000';
-      ctx.strokeRect(6, 6, canvasWidth - 12, canvasHeight - 12);
+      // Outer Border Box
+      tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
 
-      ctx.fillStyle = '#000000';
-      ctx.textBaseline = 'top';
+      // Header Section
+      tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
+      tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
 
-      ctx.font = 'bold 54px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(document.getElementById('out-biz-name').textContent, canvasWidth / 2, 50);
+      // Row 1: Cert & Grant
+      tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
+      tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
+      
+      const midX = Math.round((widthMm * 8) / 2);
+      tsplCmds.push(`BAR ${midX}, 140, 3, 90`);
+      tsplCmds.push(`TEXT ${midX + 15}, 150, "1", 0, 1, 1, "GRANT #"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
+      tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      ctx.font = 'bold 30px Arial';
-      ctx.fillText('HARVESTER SHELLSTOCK TAG', canvasWidth / 2, 115);
+      // Row 2: Date & Time
+      tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
+      tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
+      tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(40, 160);
-      ctx.lineTo(canvasWidth - 40, 160);
-      ctx.stroke();
+      // Row 3: Growing Area
+      tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
+      tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
+      tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
 
-      let currentY = 190;
-      const rowHeight = sizeValue === '3x5' ? 95 : 120;
-      const leftMargin = 45;
-      const rightMargin = canvasWidth - 45;
+      // Row 4: Species & Quantity
+      tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
+      tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
+      tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
 
-      function drawFieldRow(label1, val1, label2, val2) {
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(leftMargin, currentY + rowHeight);
-        ctx.lineTo(rightMargin, currentY + rowHeight);
-        ctx.stroke();
+      // Footer text block
+      tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
-        const halfWidth = (rightMargin - leftMargin) / 2;
+      // Print command execution
+      tsplCmds.push(`PRINT 1, ${numCopies}`);
 
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(label1.toUpperCase(), leftMargin, currentY + 8);
-        ctx.font = 'bold 34px Arial';
-        ctx.fillText(val1, leftMargin, currentY + 40);
-
-        if (label2) {
-          ctx.beginPath();
-          ctx.moveTo(leftMargin + halfWidth, currentY);
-          ctx.lineTo(leftMargin + halfWidth, currentY + rowHeight);
-          ctx.stroke();
-
-          ctx.font = 'bold 20px Arial';
-          ctx.fillText(label2.toUpperCase(), leftMargin + halfWidth + 15, currentY + 8);
-          ctx.font = 'bold 34px Arial';
-          ctx.fillText(val2, leftMargin + halfWidth + 15, currentY + 40);
-        }
-        currentY += rowHeight + 15;
-      }
-
-      drawFieldRow('Harvester Cert / Permit #', document.getElementById('out-cert').textContent, 'Grant #', document.getElementById('out-grant').textContent);
-      drawFieldRow('Harvest Date', document.getElementById('out-date').textContent, 'Harvest Time', document.getElementById('out-time').textContent);
-      drawFieldRow('Growing Area / Status', document.getElementById('out-area').textContent, null, null);
-      drawFieldRow('Species & Size', document.getElementById('out-species').textContent, 'Quantity', document.getElementById('out-quantity').textContent);
-
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(40, canvasHeight - 140);
-      ctx.lineTo(canvasWidth - 40, canvasHeight - 140);
-      ctx.stroke();
-
-      ctx.font = 'bold 19px Arial';
-      ctx.textAlign = 'center';
-      const footerText = "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.";
-      wrapText(ctx, footerText, canvasWidth / 2, canvasHeight - 115, canvasWidth - 80, 26);
-
-      const imgData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-      const pixels = imgData.data;
-      const bytesWidth = Math.ceil(canvasWidth / 8);
-      const rasterBytes = new Uint8Array(bytesWidth * canvasHeight);
-
-      for (let y = 0; y < canvasHeight; y++) {
-        for (let x = 0; x < canvasWidth; x++) {
-          const offset = (y * canvasWidth + x) * 4;
-          const gray = (pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114);
-          if (gray < 128) {
-            const byteIndex = y * bytesWidth + Math.floor(x / 8);
-            rasterBytes[byteIndex] |= (128 >> (x % 8));
-          }
-        }
-      }
-
-      const xL = bytesWidth & 0xFF;
-      const xH = (bytesWidth >> 8) & 0xFF;
-      const yL = canvasHeight & 0xFF;
-      const yH = (canvasHeight >> 8) & 0xFF;
-
-      const initCmd = new Uint8Array([0x1B, 0x40]);
-      const rasterHeader = new Uint8Array([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH]);
-      const feedCutCmd = new Uint8Array([0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x01]);
-
-      const totalLength = initCmd.length + rasterHeader.length + rasterBytes.length + feedCutCmd.length;
-      const fullPayload = new Uint8Array(totalLength);
-      let offset = 0;
-      fullPayload.set(initCmd, offset); offset += initCmd.length;
-      fullPayload.set(rasterHeader, offset); offset += rasterHeader.length;
-      fullPayload.set(rasterBytes, offset); offset += rasterBytes.length;
-      fullPayload.set(feedCutCmd, offset);
+      const tsplString = tsplCmds.join('\r\n') + '\r\n';
+      const encoder = new TextEncoder();
+      const fullPayload = encoder.encode(tsplString);
 
       const chunkSize = 512;
-      for (let c = 0; c < numCopies; c++) {
-        for (let i = 0; i < fullPayload.length; i += chunkSize) {
-          const chunk = fullPayload.slice(i, i + chunkSize);
-          await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
-        }
-        if (c < numCopies - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
+      for (let i = 0; i < fullPayload.length; i += chunkSize) {
+        const chunk = fullPayload.slice(i, i + chunkSize);
+        await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
       }
 
-      alert(`Successfully sent ${numCopies} copy(ies) to Bluetooth printer!`);
+      alert(`Successfully sent ${numCopies} copy(ies) natively to TSC printer!`);
     }
 
     // Local USB / System Printer Handler (window.print with multi-page DOM replication)
@@ -835,38 +783,19 @@
       const previewContainer = document.getElementById('previewContainer');
       const originalTag = document.getElementById('tag');
       
-      // Temporarily create duplicate tag elements for native browser print spooling
       const clones = [];
       for (let i = 1; i < numCopies; i++) {
         const clone = originalTag.cloneNode(true);
-        clone.removeAttribute('id'); // Avoid duplicate IDs
+        clone.removeAttribute('id');
         previewContainer.appendChild(clone);
         clones.push(clone);
       }
 
       window.print();
 
-      // Clean up clones after print dialog closes
       setTimeout(() => {
         clones.forEach(clone => clone.remove());
       }, 500);
-    }
-
-    function wrapText(context, text, x, y, maxWidth, lineHeight) {
-      const words = text.split(' ');
-      let line = '';
-      for(let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = context.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) {
-          context.fillText(line, x, y);
-          line = words[n] + ' ';
-          y += lineHeight;
-        } else {
-          line = testLine;
-        }
-      }
-      context.fillText(line, x, y);
     }
   </script>
 </body>
