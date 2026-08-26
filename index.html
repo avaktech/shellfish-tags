@@ -367,13 +367,13 @@
           </div>
         </div>
 
-        <!-- Oyster Icon Pointing to oyster-icon.jpg -->
+        <!-- Oyster Icon Container -->
         <div class="tag-icon-container">
           <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z\'/><path d=\'M12 6v12M6 12h12\'/></svg>'">
         </div>
 
         <div class="tag-footer">
-          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS. PERISABLE KEEP REFRIGERATED
+          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
       </div>
     </div>
@@ -430,7 +430,7 @@
       if (t) {
         let [hh, mm] = t.split(':');
         hh = parseInt(hh, 10);
-        t = `${hh % 12 || 12}:${mm} ${hh >= 12 ? 'PM' : 'AM'}`;
+        t = `${hh % 12 || 12}:${mm}${hh >= 12 ? 'PM' : 'AM'}`;
       }
       document.getElementById('out-time').textContent = t || '--';
 
@@ -438,13 +438,13 @@
       const status = (document.getElementById('sanitaryStatus').value || '').toUpperCase();
       document.getElementById('out-area').textContent = `${area} (${status})`;
 
-      document.getElementById('out-species').textContent = `${(document.getElementById('species').value || '').toUpperCase()} - ${(document.getElementById('sizeGrade').value || '').toUpperCase()}`;
+      document.getElementById('out-species').textContent = `${(document.getElementById('species').value \vert{}\vert{} '').toUpperCase()} -${(document.getElementById('sizeGrade').value || '').toUpperCase()}`;
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
     async function printNativeTSPL() {
       if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported. Use Chrome on Android or Desktop.');
+        alert('Web Serial API is not supported on this browser/device. Ensure you are using Chrome on Android or Desktop over HTTPS.');
         return;
       }
 
@@ -531,6 +531,7 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
+        // Relaxed requestPort call without strict filters so Android allows selecting any available paired/connected port device seamlessly
         const port = await navigator.serial.requestPort();
         await port.open({ baudRate: 115200 });
         const writer = port.writable.getWriter();
@@ -540,7 +541,7 @@
         
       } catch (err) {
         console.error(err);
-        alert('Raster print error: ' + err.message);
+        alert('Raster print error on Android: ' + err.message);
       }
     }
   </script>
