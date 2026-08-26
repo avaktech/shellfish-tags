@@ -603,18 +603,23 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Bluetooth Connection Management
+    // Web Bluetooth Connection Management (Targeting RF-BHS)
     async function toggleBluetooth() {
       if (!navigator.bluetooth) {
-        alert('Web Bluetooth is not supported on this browser. Please use Chrome on Android.');
+        alert('Web Bluetooth is not supported on this browser. Please use Chrome on Android or Desktop.');
         return;
       }
 
       try {
         if (!bluetoothDevice || !bluetoothDevice.gatt.connected) {
           document.getElementById('bt-btn-text').textContent = 'Searching...';
+
+          // Targeted scan filter for RF-BHS
           bluetoothDevice = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
+            filters: [
+              { namePrefix: 'RF-BHS' },
+              { name: 'RF-BHS' }
+            ],
             optionalServices: [
               '000018f0-0000-1000-8000-00805f9b34fb',
               '49535343-fe7d-4ae5-8fa9-9fafd205e455',
@@ -624,6 +629,7 @@
 
           bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
 
+          // Initiate GATT Server Connection
           const server = await bluetoothDevice.gatt.connect();
           let service = null;
           let characteristic = null;
@@ -641,7 +647,7 @@
               }
               if (characteristic) break;
             } catch (err) {
-              // Ignore restricted services
+              // Skip restricted system GATT services
             }
           }
 
@@ -660,6 +666,12 @@
         }
       } catch (error) {
         console.error(error);
+        
+        if (error.name === 'NotFoundError') {
+          onDisconnected();
+          return;
+        }
+
         alert('Bluetooth error: ' + error.message);
         onDisconnected();
       }
@@ -672,7 +684,7 @@
       document.getElementById('bt-btn-text').textContent = 'Connect BT';
     }
 
-    // Native TSPL Bluetooth Printing Handler for TSC Alpha 3RB
+    // Native TSPL Bluetooth Printing Handler for TSC / RF-BHS Printer
     async function printViaBluetooth() {
       if (!bluetoothCharacteristic) {
         alert('Please connect a Bluetooth thermal printer first.');
@@ -767,7 +779,7 @@
         await bluetoothCharacteristic.writeValueWithoutResponse(chunk);
       }
 
-      alert(`Successfully sent ${numCopies} copy(ies) natively to TSC printer!`);
+      alert(`Successfully sent ${numCopies} copy(ies) natively to printer!`);
     }
 
     // Local USB / System Printer Handler (window.print with multi-page DOM replication)
