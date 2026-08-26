@@ -592,61 +592,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Direct Synchronous Canvas Rasterizer for TSPL BITMAP Bytes
-    function getTsplBitmapCommand(imgElement, targetX, targetY) {
-      if (!imgElement || imgElement.style.display === 'none' || imgElement.naturalWidth === 0) {
-        return null;
-      }
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        const targetWidth = 160;
-        const scale = targetWidth / imgElement.naturalWidth;
-        const targetHeight = Math.round(imgElement.naturalHeight * scale);
-
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
-        ctx.drawImage(imgElement, 0, 0, targetWidth, targetHeight);
-
-        const imgData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-        const bytesPerRow = Math.ceil(targetWidth / 8);
-        const bmpBytes = new Uint8Array(bytesPerRow * targetHeight);
-
-        let byteIdx = 0;
-        for (let y = 0; y < targetHeight; y++) {
-          for (let x = 0; x < bytesPerRow; x++) {
-            let byteVal = 0;
-            for (let bit = 0; bit < 8; bit++) {
-              const pxX = (x * 8) + bit;
-              if (pxX < targetWidth) {
-                const idx = (y * targetWidth + pxX) * 4;
-                const r = imgData.data[idx];
-                const g = imgData.data[idx + 1];
-                const b = imgData.data[idx + 2];
-                const avg = (r + g + b) / 3;
-                if (avg < 128) {
-                  byteVal |= (1 << (7 - bit));
-                }
-              }
-            }
-            bmpBytes[byteIdx++] = byteVal;
-          }
-        }
-
-        const xPos = Math.round(targetX - (targetWidth / 2));
-        const tsplHeader = `BITMAP ${xPos}, ${targetY}, ${bytesPerRow}, ${targetHeight}, 0, `;
-        return { header: tsplHeader, data: bmpBytes };
-      } catch (e) {
-        console.warn('Bitmap generation bypassed:', e);
-        return null;
-      }
-    }
-
-    // Web Serial Print Handler
+    // Web Serial Print Handler (Pure Text & Direct Commands)
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -690,10 +636,14 @@
       let currentY = margin;
       let tsplTextCmds = [];
       
-      // Clean buffer reset and sizing configuration
+      // Strict TSPL Initialization Header
       tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-      tsplTextCmds.push(`GAP 2 mm, 0 mm`);
+      tsplTextCmds.push(`GAP 3 mm, 0 mm`);
+      tsplTextCmds.push(`SPEED 3`);
+      tsplTextCmds.push(`DENSITY 10`);
       tsplTextCmds.push(`DIRECTION 1`);
+      tsplTextCmds.push(`REFERENCE 0,0`);
+      tsplTextCmds.push(`SHIFT 0`);
       tsplTextCmds.push(`CLS`);
 
       // Outer Bounding Box
@@ -735,10 +685,6 @@
       addSingleRow("GROWING AREA / STATUS", areaStr);
       addTwoColRow("SPECIES & SIZE", speciesStr, "QUANTITY", qtyStr);
 
-      // Icon placement slot right above pinned footer
-      const iconTargetY = currentY + 4;
-      currentY += 56;
-
       // Locked Absolute Bottom Footer Notice Block
       const footerY = maxDotsY - margin - footerSpace;
       tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 8}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL"`);
@@ -755,23 +701,7 @@
         await port.open({ baudRate: 115200 });
 
         const writer = port.writable.getWriter();
-        
-        const imgEl = document.getElementById('oyster-img');
-        const bitmapObj = getTsplBitmapCommand(imgEl, maxDotsX / 2, iconTargetY);
-
-        if (bitmapObj) {
-          const printCmdIndex = textBlock.lastIndexOf('PRINT');
-          const prePrint = textBlock.substring(0, printCmdIndex);
-          const postPrint = textBlock.substring(printCmdIndex);
-
-          await writer.write(encoder.encode(prePrint));
-          await writer.write(encoder.encode(bitmapObj.header));
-          await writer.write(bitmapObj.data);
-          await writer.write(encoder.encode('\r\n' + postPrint));
-        } else {
-          await writer.write(encoder.encode(textBlock));
-        }
-
+        await writer.write(encoder.encode(textBlock));
         await writer.releaseLock();
         await port.close();
 
