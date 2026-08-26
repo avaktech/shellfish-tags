@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TAG MAKER - WEB BLUETOOTH WYSIWYG</title>
+  <title>TAG MAKER - AUTO BLUETOOTH WYSIWYG</title>
 
   <!-- iOS / Apple Home Screen Shortcut Config -->
   <link rel="apple-touch-icon" href="oyster-icon.jpg">
@@ -228,7 +228,7 @@
 
   <div class="app-container">
     <div class="form-section no-print">
-      <h2>Harvest Tag Generator (Web Bluetooth)</h2>
+      <h2>Harvest Tag Generator (Auto Bluetooth)</h2>
       <div class="form-grid">
         <div class="form-group full">
           <label for="tagSize">Tag Size Preset</label>
@@ -528,14 +528,22 @@
           return;
         }
 
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb',
-            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-          ]
-        });
+        // Check for previously authorized printer to bypass picker automatically
+        let device;
+        const permittedDevices = await navigator.bluetooth.getDevices();
+        
+        if (permittedDevices.length > 0) {
+          device = permittedDevices[0];
+        } else {
+          device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [
+              '000018f0-0000-1000-8000-00805f9b34fb',
+              'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+              '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+            ]
+          });
+        }
 
         const server = await device.gatt.connect();
         let targetCharacteristic = null;
@@ -571,11 +579,10 @@
         }
 
         server.disconnect();
-        alert('Print job sent successfully via Web Bluetooth!');
           
       } catch (err) {
         console.error(err);
-        alert('Bluetooth Print Error: ' + err.message);
+        alert('Print Error: ' + err.message);
       }
     }
   </script>
