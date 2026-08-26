@@ -124,7 +124,6 @@
       font-family: Arial, sans-serif;
     }
 
-    /* Dimensions based on DPI scaling for screen preview */
     .tag.size-4x6 { width: 384px; height: 576px; padding: 20px; }
     .tag.size-3x7 { width: 288px; height: 672px; padding: 15px; }
     .tag.size-3x5 { width: 288px; height: 480px; padding: 15px; }
@@ -161,6 +160,8 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;
+      text-align: center;
       margin-bottom: 4px;
       flex-grow: 1;
     }
@@ -403,7 +404,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '--').toUpperCase();
     }
 
-    // Web Serial Print Handler (Full-Width Row Stack Layout)
+    // Web Serial Print Handler (Narrowed Margins & Corrected 3-Inch Width Bounds)
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -436,13 +437,15 @@
       const speciesStr = document.getElementById('out-species').textContent;
       const qtyStr = document.getElementById('out-quantity').textContent;
 
-      const margin = 24;
-      const usableWidth = maxDotsX - (margin * 2);
+      // Use a safer left/right margin for 3" tags so the right side doesn't clip off the edge
+      const margin = (sizeValue === '3x7' || sizeValue === '3x5') ? 16 : 20;
+      const rightBoundary = maxDotsX - margin;
+      const usableWidth = rightBoundary - margin;
+      const centerX = margin + Math.floor(usableWidth / 2);
       
-      const headerSpace = 90;
-      const footerSpace = 65;
+      const headerSpace = 75;  
+      const footerSpace = 55;  
       
-      // 7 distinct data fields, each getting its own dedicated full-width row
       const availableBodyHeight = (maxDotsY - (margin * 2)) - headerSpace - footerSpace;
       const rowHeight = Math.floor(availableBodyHeight / 7);
       
@@ -453,43 +456,41 @@
       tsplTextCmds.push(`CLS`);
 
       tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-      tsplTextCmds.push(`GAP 3 mm, 0 mm`);
+      tsplTextCmds.push(`GAP 3 mm, 2 mm`);
       tsplTextCmds.push(`SPEED 3`);
       tsplTextCmds.push(`DENSITY 10`);
       tsplTextCmds.push(`DIRECTION 1`);
       tsplTextCmds.push(`REFERENCE 0,0`);
       tsplTextCmds.push(`SHIFT 0`);
 
-      tsplTextCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
+      tsplTextCmds.push(`BOX ${margin}, ${margin}, ${rightBoundary}, ${maxDotsY - margin}, 3`);
 
-      // Header Section
-      tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 10}, "3", 0, 1, 1, "${bizName}"`);
-      tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 48}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      // Header Section (Centered)
+      tsplTextCmds.push(`TEXT ${centerX}, ${currentY + 8}, "3", 0, 1, 1, "${bizName}"`);
+      tsplTextCmds.push(`TEXT ${centerX}, ${currentY + 42}, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
       currentY += headerSpace;
       tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 3`);
 
-      function addSingleRow(label, val) {
-        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 8}, "1", 0, 1, 1, "${label}"`);
-        tsplTextCmds.push(`TEXT ${margin + 10}, ${currentY + 28}, "2", 0, 1, 1, "${val}"`);
+      function addCenteredRow(label, val) {
+        tsplTextCmds.push(`TEXT ${centerX}, ${currentY + 6}, "1", 0, 1, 1, "${label}"`);
+        tsplTextCmds.push(`TEXT ${centerX}, ${currentY + 24}, "2", 0, 1, 1, "${val}"`);
         
         currentY += rowHeight;
         tsplTextCmds.push(`BAR ${margin}, ${currentY}, ${usableWidth}, 2`);
       }
 
-      // Every field gets its own full-width row
-      addSingleRow("HARVESTER CERT / PERMIT #", cert);
-      addSingleRow("AQUACULTURE GRANT #", grant);
-      addSingleRow("HARVEST DATE", dateStr);
-      addSingleRow("HARVEST TIME", timeStr);
-      addSingleRow("GROWING AREA / STATUS", areaStr);
-      addSingleRow("SPECIES & SIZE", speciesStr);
-      addSingleRow("QUANTITY", qtyStr);
+      addCenteredRow("HARVESTER CERT / PERMIT #", cert);
+      addCenteredRow("AQUACULTURE GRANT #", grant);
+      addCenteredRow("HARVEST DATE", dateStr);
+      addCenteredRow("HARVEST TIME", timeStr);
+      addCenteredRow("GROWING AREA / STATUS", areaStr);
+      addCenteredRow("SPECIES & SIZE", speciesStr);
+      addCenteredRow("QUANTITY", qtyStr);
 
-      // Footer Notice Block
       const footerY = maxDotsY - margin - footerSpace;
-      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 8}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL"`);
-      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 26}, "1", 0, 1, 1, "CONTAINER IS EMPTY OR RETAGGED AND"`);
-      tsplTextCmds.push(`TEXT ${margin + 10}, ${footerY + 44}, "1", 0, 1, 1, "THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+      tsplTextCmds.push(`TEXT ${centerX}, ${footerY + 6}, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED UNTIL"`);
+      tsplTextCmds.push(`TEXT ${centerX}, ${footerY + 22}, "1", 0, 1, 1, "CONTAINER IS EMPTY OR RETAGGED AND"`);
+      tsplTextCmds.push(`TEXT ${centerX}, ${footerY + 38}, "1", 0, 1, 1, "THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
 
       tsplTextCmds.push(`PRINT 1, ${numCopies}`);
 
