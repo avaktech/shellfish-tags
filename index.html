@@ -1,4 +1,322 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MA Shellstock Tag Maker</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --border-color: #333333;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: row;
+      gap: 30px;
+      max-width: 1200px;
+      width: 100%;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .controls-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      border-radius: 8px;
+      width: 350px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .controls-panel h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 5px;
+      color: #aaa;
+    }
+
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      background: #2a2a2a;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      flex: 1;
+      padding: 10px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--accent-hover);
+    }
+
+    button.usb-btn {
+      background: #10b981;
+    }
+    button.usb-btn:hover {
+      background: #059669;
+    }
+
+    /* Tag Preview Styles */
+    .preview-container {
+      background: #2a2a2a;
+      padding: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 500px;
+    }
+
+    .tag {
+      background: white;
+      color: black;
+      box-sizing: border-box;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      border: 3px solid black;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Dimensions based on DPI scaling for screen preview */
+    .tag.size-4x6 { width: 384px; height: 576px; padding: 20px; }
+    .tag.size-3x7 { width: 288px; height: 672px; padding: 15px; }
+    .tag.size-3x5 { width: 288px; height: 480px; padding: 15px; }
+
+    .tag-header {
+      text-align: center;
+      border-bottom: 2px solid black;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+
+    .tag-header h1 {
+      font-size: 16px;
+      margin: 0 0 4px 0;
+      font-weight: bold;
+    }
+
+    .tag-header h2 {
+      font-size: 11px;
+      margin: 0;
+      font-weight: bold;
+    }
+
+    .tag-body {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      justify-content: space-between;
+    }
+
+    .field-row {
+      border: 1px solid black;
+      padding: 4px 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin-bottom: 4px;
+      flex-grow: 1;
+    }
+
+    .field-label {
+      font-size: 8px;
+      font-weight: bold;
+      color: #333;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .field-value {
+      font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+
+    .tag-footer {
+      border-top: 2px solid black;
+      padding-top: 6px;
+      text-align: center;
+      font-size: 7.5px;
+      line-height: 1.2;
+      font-weight: bold;
+    }
+
+    @media print {
+      body { background: none; padding: 0; }
+      .controls-panel { display: none; }
+      .preview-container { background: none; padding: 0; border: none; min-height: 0; }
+      .tag { border: 2px solid black !important; page-break-after: always; }
+    }
+  </style>
+  <style id="dynamic-print-style"></style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Controls Sidebar -->
+    <div class="controls-panel">
+      <h2>Tag Configuration</h2>
+      
+      <div class="form-group">
+        <label for="tagSize">Tag Size / Format</label>
+        <select id="tagSize">
+          <option value="4x6">4" x 6" Standard Thermal</option>
+          <option value="3x7">3" x 7" Long Tag</option>
+          <option value="3x5">3" x 5" Compact Tag</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="bizName">Harvester / Company Name</label>
+        <input type="text" id="bizName" value="BAYSTATE SHELLFISH CO.">
+      </div>
+
+      <div class="form-group">
+        <label for="certNum">Harvester Cert / Permit #</label>
+        <input type="text" id="certNum" placeholder="MA-1234-SS">
+      </div>
+
+      <div class="form-group">
+        <label for="grantNum">Aquaculture Grant #</label>
+        <input type="text" id="grantNum" placeholder="NG-56">
+      </div>
+
+      <div class="form-group">
+        <label for="harvestDate">Harvest Date</label>
+        <input type="date" id="harvestDate">
+      </div>
+
+      <div class="form-group">
+        <label for="harvestTime">Harvest Time</label>
+        <input type="time" id="harvestTime">
+      </div>
+
+      <div class="form-group">
+        <label for="growingArea">Growing Area</label>
+        <input type="text" id="growingArea" placeholder="N1.1">
+      </div>
+
+      <div class="form-group">
+        <label for="sanitaryStatus">Sanitary Status</label>
+        <input type="text" id="sanitaryStatus" value="Approved">
+      </div>
+
+      <div class="form-group">
+        <label for="species">Species</label>
+        <input type="text" id="species" value="Eastern Oyster">
+      </div>
+
+      <div class="form-group">
+        <label for="sizeGrade">Size Grade</label>
+        <input type="text" id="sizeGrade" value="Select">
+      </div>
+
+      <div class="form-group">
+        <label for="quantity">Quantity / Volume</label>
+        <input type="text" id="quantity" value="1 Bushel">
+      </div>
+
+      <div class="btn-group">
+        <button onclick="printViaWebSerial()">Bluetooth Serial</button>
+        <button class="usb-btn" onclick="printViaUSB()">System / USB</button>
+      </div>
+    </div>
+
+    <!-- Live Preview Display -->
+    <div class="preview-container" id="previewContainer">
+      <div id="tag" class="tag size-4x6">
+        <div class="tag-header">
+          <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
+          <h2>HARVESTER SHELLSTOCK TAG</h2>
+        </div>
+        <div class="tag-body">
+          <div class="field-row">
+            <div class="field-label">Harvester Cert / Permit #</div>
+            <div class="field-value" id="out-cert">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Aquaculture Grant #</div>
+            <div class="field-value" id="out-grant">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Harvest Date</div>
+            <div class="field-value" id="out-date">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Harvest Time</div>
+            <div class="field-value" id="out-time">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Growing Area / Status</div>
+            <div class="field-value" id="out-area">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Species & Size</div>
+            <div class="field-value" id="out-species">--</div>
+          </div>
+          <div class="field-row">
+            <div class="field-label">Quantity</div>
+            <div class="field-value" id="out-quantity">--</div>
+          </div>
+        </div>
+        <div class="tag-footer">
+          THIS TAG IS REQUIRED TO BE ATTACHED UNTIL<br>
+          CONTAINER IS EMPTY OR RETAGGED AND<br>
+          THEREAFTER KEPT ON FILE FOR 90 DAYS.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -124,18 +442,16 @@
       const headerSpace = 90;
       const footerSpace = 65;
       
-      // We have 7 distinct data fields, each getting its own dedicated full-width row
+      // 7 distinct data fields, each getting its own dedicated full-width row
       const availableBodyHeight = (maxDotsY - (margin * 2)) - headerSpace - footerSpace;
       const rowHeight = Math.floor(availableBodyHeight / 7);
       
       let currentY = margin;
       let tsplTextCmds = [];
       
-      // Force TSPL Language Mode & Clear Buffer
       tsplTextCmds.push(`SET LANGUAGE TSPL`);
       tsplTextCmds.push(`CLS`);
 
-      // Configuration & Sensor Setup
       tsplTextCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
       tsplTextCmds.push(`GAP 3 mm, 0 mm`);
       tsplTextCmds.push(`SPEED 3`);
@@ -144,7 +460,6 @@
       tsplTextCmds.push(`REFERENCE 0,0`);
       tsplTextCmds.push(`SHIFT 0`);
 
-      // Outer Bounding Box
       tsplTextCmds.push(`BOX ${margin}, ${margin}, ${maxDotsX - margin}, ${maxDotsY - margin}, 3`);
 
       // Header Section
@@ -234,3 +549,5 @@
       }, 500);
     }
   </script>
+</body>
+</html>
