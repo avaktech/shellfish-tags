@@ -311,7 +311,7 @@
         <div class="btn-row">
           <button class="action-btn" onclick="printNativeTSPL()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print via Bluetooth (Raster)</span>
+            <span>Print Direct (USB/Bluetooth)</span>
           </button>
           <button class="action-btn usb-btn" onclick="window.print()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -367,7 +367,7 @@
           </div>
         </div>
 
-        <!-- Oyster Icon Container -->
+        <!-- Oyster Icon Pointing to oyster-icon.jpg -->
         <div class="tag-icon-container">
           <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z\'/><path d=\'M12 6v12M6 12h12\'/></svg>'">
         </div>
@@ -430,7 +430,7 @@
       if (t) {
         let [hh, mm] = t.split(':');
         hh = parseInt(hh, 10);
-        t = `${hh % 12 || 12}:${mm}${hh >= 12 ? 'PM' : 'AM'}`;
+        t = `${hh % 12 || 12}:${mm} ${hh >= 12 ? 'PM' : 'AM'}`;
       }
       document.getElementById('out-time').textContent = t || '--';
 
@@ -438,16 +438,11 @@
       const status = (document.getElementById('sanitaryStatus').value || '').toUpperCase();
       document.getElementById('out-area').textContent = `${area} (${status})`;
 
-      document.getElementById('out-species').textContent = `${(document.getElementById('species').value \vert{}\vert{} '').toUpperCase()} -${(document.getElementById('sizeGrade').value || '').toUpperCase()}`;
+      document.getElementById('out-species').textContent = `${(document.getElementById('species').value || '').toUpperCase()} - ${(document.getElementById('sizeGrade').value || '').toUpperCase()}`;
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
     async function printNativeTSPL() {
-      if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported on this browser/device. Ensure you are using Chrome on Android or Desktop over HTTPS.');
-        return;
-      }
-
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
@@ -531,17 +526,64 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
-        // Relaxed requestPort call without strict filters so Android allows selecting any available paired/connected port device seamlessly
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-        const writer = port.writable.getWriter();
-        await writer.write(payload);
-        await writer.releaseLock();
-        await port.close();
-        
+        // Smart Connection Routing: Mobile uses Web Bluetooth, Desktop uses Web Serial
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        if (isMobile || !('serial' in navigator)) {
+          if (!('bluetooth' in navigator)) {
+            alert('Web Bluetooth is not supported on this device/browser.');
+            return;
+          }
+
+          const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['00001101-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+          });
+
+          const server = await device.gatt.connect();
+          
+          let service;
+          try {
+            service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+          } catch (e) {
+            const services = await server.getPrimaryServices();
+            service = services[0];
+          }
+
+          const characteristics = await service.getCharacteristics();
+          const writableChar = characteristics.find(c => c.properties.write || c.properties.writeWithoutResponse);
+
+          if (!writableChar) {
+            throw new Error('No writable characteristic found on this Bluetooth device.');
+          }
+
+          // Chunk stream to prevent memory overflow on mobile thermal hardware
+          const CHUNK_SIZE = 512;
+          for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+            const chunk = payload.slice(i, i + CHUNK_SIZE);
+            if (writableChar.properties.writeWithoutResponse) {
+              await writableChar.writeValueWithoutResponse(chunk);
+            } else {
+              await writableChar.writeValue(chunk);
+            }
+          }
+
+          alert('Printed successfully via Bluetooth!');
+
+        } else {
+          const port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+          const writer = port.writable.getWriter();
+          await writer.write(payload);
+          await writer.releaseLock();
+          await port.close();
+          
+          alert('Printed successfully via USB Serial!');
+        }
+          
       } catch (err) {
         console.error(err);
-        alert('Raster print error on Android: ' + err.message);
+        alert('Print error: ' + err.message);
       }
     }
   </script>
