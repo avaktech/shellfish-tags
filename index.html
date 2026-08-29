@@ -426,7 +426,7 @@
         <div class="btn-row">
           <button class="action-btn bt-btn" onclick="printViaWebSerial()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span id="bt-btn-text">BT Serial Print</span>
+            <span id="bt-btn-text">Bluetooth Print Preview</span>
           </button>
           <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -497,6 +497,8 @@
     </div>
   </div>
 
+  <!-- Used to turn the visible tag into a printer-ready image for Bluetooth printing. -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
@@ -584,10 +586,16 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Serial API Bluetooth Classic Printing Handler
+    // Bluetooth printing: render the visible tag, then send it as a TSPL bitmap.
+    // This keeps Bluetooth output visually aligned with the on-screen preview.
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
-        alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
+        alert('Bluetooth printing requires a current version of Chrome on Android.');
+        return;
+      }
+
+      if (typeof html2canvas !== 'function') {
+        alert('The preview renderer did not load. Connect to the internet, reload this page, and try again.');
         return;
       }
 
@@ -600,87 +608,80 @@
       }
 
       const sizeValue = document.getElementById('tagSize').value;
-      
-      // The Alpha-3R has a 72 mm (2.83 in) maximum printable width.
-      // These perforated tags are continuous media, so height controls the advance.
-      const widthMm = 72;
-      const heightMm = sizeValue === '3x7' ? 177.8 : 127.0;
-
-      const tsplText = (value) => String(value).replace(/["\r\n]/g, ' ');
-      const bizName = tsplText(document.getElementById('out-biz-name').textContent);
-      const cert = tsplText(document.getElementById('out-cert').textContent);
-      const grant = tsplText(document.getElementById('out-grant').textContent);
-      const dateStr = tsplText(document.getElementById('out-date').textContent);
-      const timeStr = tsplText(document.getElementById('out-time').textContent);
-      const areaStr = tsplText(document.getElementById('out-area').textContent);
-      const speciesStr = tsplText(document.getElementById('out-species').textContent);
-      const qtyStr = tsplText(document.getElementById('out-quantity').textContent);
-
-      let tsplCmds = [];
-      
-      tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-      tsplCmds.push(`BLINE 0 mm, 0 mm`);
-      tsplCmds.push(`REFERENCE 0, 0`);
-      tsplCmds.push(`DIRECTION 1`);
-      tsplCmds.push(`CLS`);
-
-      tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
-
-      tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
-      tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
-
-      tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
-      tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
-      
-      const midX = Math.round((widthMm * 8) / 2);
-      tsplCmds.push(`BAR ${midX}, 140, 3, 90`);
-      tsplCmds.push(`TEXT ${midX + 15}, 150, "1", 0, 1, 1, "GRANT #"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
-      tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
-      tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
-      tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
-      tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
-      tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
-      tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
-      tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
-
-      tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
-
-      tsplCmds.push(`PRINT 1, ${numCopies}`);
-
-      const tsplString = tsplCmds.join('\r\n') + '\r\n';
+      const widthDots = 576; // Alpha-3R: 72 mm × 8 dots per mm
+      const tagHeightMm = sizeValue === '3x7' ? 177.8 : 127.0;
+      const tagHeightDots = Math.round(tagHeightMm * 8);
+      const buttonText = document.getElementById('bt-btn-text');
+      buttonText.textContent = 'Rendering preview…';
 
       try {
-        // Prompt user to pick their paired Bluetooth Serial port
+        const preview = document.getElementById('tag');
+        const renderedPreview = await html2canvas(preview, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false,
+          useCORS: true
+        });
+
+        // Preserve the preview's proportions. The remaining space is the Alpha-3R's
+        // unavoidable 2.83-inch print-width margin on a 3-inch-wide tag.
+        const imageHeightDots = Math.min(
+          tagHeightDots,
+          Math.round(renderedPreview.height * (widthDots / renderedPreview.width))
+        );
+        const bitmapCanvas = document.createElement('canvas');
+        bitmapCanvas.width = widthDots;
+        bitmapCanvas.height = imageHeightDots;
+        const context = bitmapCanvas.getContext('2d', { willReadFrequently: true });
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, widthDots, imageHeightDots);
+        context.drawImage(renderedPreview, 0, 0, widthDots, imageHeightDots);
+
+        const pixels = context.getImageData(0, 0, widthDots, imageHeightDots).data;
+        const bytesPerRow = widthDots / 8;
+        const bitmap = new Uint8Array(bytesPerRow * imageHeightDots);
+        for (let y = 0; y < imageHeightDots; y++) {
+          for (let x = 0; x < widthDots; x++) {
+            const offset = (y * widthDots + x) * 4;
+            const luminance = pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114;
+            if (luminance < 180) {
+              bitmap[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+            }
+          }
+        }
+
+        const encoder = new TextEncoder();
+        const header = encoder.encode(
+          `SIZE 72 mm, ${tagHeightMm} mm\r\n` +
+          `BLINE 0 mm, 0 mm\r\n` +
+          `REFERENCE 0, 0\r\n` +
+          `DIRECTION 1\r\nCLS\r\n` +
+          `BITMAP 0,0,${bytesPerRow},${imageHeightDots},0,`
+        );
+        const footer = encoder.encode(`\r\nPRINT 1,${numCopies}\r\n`);
+
+        // Prompt the user to choose the paired Alpha-3R Bluetooth serial port.
         const port = await navigator.serial.requestPort();
         // Alpha-3R's documented default serial setting is 9600 bps.
         await port.open({ baudRate: 9600 });
-
-        const encoder = new TextEncoder();
         const writer = port.writable.getWriter();
-        await writer.write(encoder.encode(tsplString));
-        await writer.releaseLock();
-        await port.close();
+        try {
+          await writer.write(header);
+          await writer.write(bitmap);
+          await writer.write(footer);
+        } finally {
+          writer.releaseLock();
+          await port.close();
+        }
 
-        alert(`Successfully sent ${numCopies} copy(ies) via Bluetooth Serial!`);
+        alert(`Sent ${numCopies} preview tag(s) to the Alpha-3R.`);
       } catch (error) {
         console.error(error);
         if (error.name !== 'NotFoundError') {
-          alert('Serial print error: ' + error.message);
+          alert('Bluetooth print error: ' + error.message);
         }
+      } finally {
+        buttonText.textContent = 'Bluetooth Print Preview';
       }
     }
 
