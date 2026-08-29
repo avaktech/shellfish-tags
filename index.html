@@ -540,22 +540,15 @@
           return;
         }
 
-        // Request device
-        let device;
-        const permittedDevices = await navigator.bluetooth.getDevices();
-        
-        if (permittedDevices.length > 0) {
-          device = permittedDevices[0];
-        } else {
-          device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [
-              '000018f0-0000-1000-8000-00805f9b34fb', // Device Information
-              'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Some proprietary services
-              '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // TX Power
-            ]
-          });
-        }
+        // Always prompt for device (getDevices() not widely supported)
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [
+            '000018f0-0000-1000-8000-00805f9b34fb', // Device Information
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Some proprietary services
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // TX Power
+          ]
+        });
 
         const server = await device.gatt.connect();
         let targetCharacteristic = null;
