@@ -138,19 +138,6 @@
 
     .usb-btn { background-color: #457b9d; }
 
-    .debug-box {
-      grid-column: 1 / -1;
-      background: #f5f5f5;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 12px;
-      max-height: 200px;
-      overflow-y: auto;
-      color: #333;
-    }
-
     /* Visual Preview Layout Proportions */
     .tag {
       background: white;
@@ -321,22 +308,15 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn" onclick="printViaWebBluetooth()">
+          <button class="action-btn" onclick="printNativeTSPL()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print via Web Bluetooth</span>
+            <span>Print Instantly (Auto-Connect)</span>
           </button>
           <button class="action-btn usb-btn" onclick="window.print()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
-            <span>Local Browser Print</span>
+            <span>Local Print</span>
           </button>
         </div>
-
-        <div id="debugLog" class="debug-box" style="display:none;">
-          <div id="debugContent"></div>
-        </div>
-        <button class="action-btn" onclick="toggleDebug()" style="background-color: #666;">
-          <span id="debugToggleText">Show Debug Log</span>
-        </button>
       </div>
     </div>
 
@@ -398,22 +378,6 @@
   </div>
 
   <script>
-    let debugMode = false;
-
-    function addDebug(msg) {
-      console.log(msg);
-      const debugContent = document.getElementById('debugContent');
-      const timestamp = new Date().toLocaleTimeString();
-      debugContent.innerHTML += `[${timestamp}] ${msg}<br>`;
-      debugContent.scrollTop = debugContent.scrollHeight;
-    }
-
-    function toggleDebug() {
-      debugMode = !debugMode;
-      document.getElementById('debugLog').style.display = debugMode ? 'block' : 'none';
-      document.getElementById('debugToggleText').textContent = debugMode ? 'Hide Debug Log' : 'Show Debug Log';
-    }
-
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -476,22 +440,14 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
-    async function printViaWebBluetooth() {
-      debugMode = true;
-      document.getElementById('debugLog').style.display = 'block';
-      document.getElementById('debugToggleText').textContent = 'Hide Debug Log';
-      document.getElementById('debugContent').innerHTML = '';
-
+    async function printNativeTSPL() {
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
       const tagElement = document.getElementById('tag');
       
       try {
-        addDebug('Starting bitmap to Bluetooth print...');
-
         if (typeof html2canvas === 'undefined') {
-          addDebug('Loading html2canvas library...');
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -499,15 +455,12 @@
             script.onerror = reject;
             document.head.appendChild(script);
           });
-          addDebug('html2canvas loaded');
         }
 
-        addDebug('Converting tag to canvas...');
         const canvas = await html2canvas(tagElement, {
           scale: 2,
           useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false
+          backgroundColor: '#ffffff'
         });
 
         const ctx = canvas.getContext('2d');
@@ -517,8 +470,6 @@
         const height = canvas.height;
         const bytesPerRow = Math.ceil(width / 8);
         
-        addDebug(`Canvas size: ${width}x${height}px → ${bytesPerRow} bytes/row`);
-
         const buffer = new Uint8Array(bytesPerRow * height);
         buffer.fill(0xFF);
 
@@ -531,15 +482,13 @@
             
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            if (luminance < 128) {
+            if (luminance < 140) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
               buffer[byteIndex] &= ~(1 << bitPosition);
             }
           }
         }
-
-        addDebug('Bitmap conversion complete');
 
         const sizeVal = document.getElementById('tagSize').value;
         let widthMm = 76;
@@ -556,18 +505,17 @@
           heightMm = 152; 
         }
 
-        addDebug(`Tag size: ${widthMm}mm x ${heightMm}mm`);
+        let tsplHeader = '';
+        tsplHeader += `SET TEAR ON\r\n`;
+        tsplHeader += `SPEED 3\r\n`;
+        tsplHeader += `DENSITY 10\r\n`;
+        tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
+        tsplHeader += `GAP 3 mm,0 mm\r\n`;
+        tsplHeader += `DIRECTION 1\r\n`;
+        tsplHeader += `CLS\r\n`;
+        tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
 
-        let tsplCommand = '';
-        tsplCommand += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
-        tsplCommand += `GAP 3 mm,0 mm\r\n`;
-        tsplCommand += `SPEED 3\r\n`;
-        tsplCommand += `DENSITY 10\r\n`;
-        tsplCommand += `DIRECTION 1\r\n`;
-        tsplCommand += `CLS\r\n`;
-        tsplCommand += `BITMAP 0,0,${bytesPerRow},${height},0,`;
-
-        const headerBytes = new TextEncoder().encode(tsplCommand);
+        const headerBytes = new TextEncoder().encode(tsplHeader);
         const footerBytes = new TextEncoder().encode(`\r\nPRINT ${copies},1\r\n`);
 
         const totalLength = headerBytes.length + buffer.length + footerBytes.length;
@@ -576,118 +524,35 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
-        addDebug(`Total payload: ${totalLength} bytes`);
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        if (!navigator.bluetooth) {
-          addDebug('ERROR: Web Bluetooth not supported!');
-          alert('Web Bluetooth is not supported on this browser or device.');
-          return;
-        }
-
-        // Filter for RF-BHS (TSC Alpha 3R) with SPP service UUID
-        addDebug('Requesting Bluetooth device (filtering for RF-BHS)...');
-        const device = await navigator.bluetooth.requestDevice({
-          filters: [
-            { namePrefix: 'RF-BHS' }
-          ],
-          optionalServices: [
-            '00001101-0000-1000-8000-00805f9b34fb' // Serial Port Profile (SPP)
-          ]
-        });
-
-        addDebug(`Device selected: ${device.name} (${device.id})`);
-        addDebug('Connecting to GATT server...');
-
-        const server = await device.gatt.connect();
-        addDebug('GATT server connected ✓');
-
-        // Try to get SPP service first
-        addDebug('Attempting to discover SPP service...');
-        let targetCharacteristic = null;
-        
-        try {
-          const sppService = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
-          addDebug('SPP Service found ✓');
+        if (isMobile) {
+          // --- ANDROID INTENT BRIDGE (Direct Component Target) ---
+          const blob = new Blob([payload], { type: 'application/octet-stream' });
+          const blobUrl = URL.createObjectURL(blob);
           
-          const characteristics = await sppService.getCharacteristics();
-          addDebug(`${characteristics.length} characteristics in SPP service`);
-          
-          for (let i = 0; i < characteristics.length; i++) {
-            const char = characteristics[i];
-            const props = char.properties;
-            addDebug(`  Char ${i}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
-            
-            if (props.write || props.writeWithoutResponse) {
-              targetCharacteristic = char;
-              addDebug(`  ✓ Using this characteristic for writing`);
-              break;
-            }
+          const intentUrl = `intent:${blobUrl}#Intent;scheme=http;package=ru.a402d.rawbtprinter;component=ru.a402d.rawbtprinter/.activity.PrintDownloadActivity;end;`;
+          window.location.href = intentUrl;
+
+        } else {
+          // --- DESKTOP / WEB SERIAL AUTO-CONNECT ---
+          let ports = await navigator.serial.getPorts();
+          let port = ports[0];
+
+          if (!port) {
+            port = await navigator.serial.requestPort();
           }
-        } catch (e) {
-          addDebug(`SPP Service not available: ${e.message}`);
-          addDebug('Scanning all services...');
-          
-          const services = await server.getPrimaryServices();
-          addDebug(`Found ${services.length} services`);
 
-          for (let i = 0; i < services.length; i++) {
-            const service = services[i];
-            addDebug(`Service ${i}: ${service.uuid}`);
-            try {
-              const characteristics = await service.getCharacteristics();
-              addDebug(`  → ${characteristics.length} characteristics`);
-              
-              for (let j = 0; j < characteristics.length; j++) {
-                const char = characteristics[j];
-                const props = char.properties;
-                addDebug(`    Char ${j}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
-                
-                if (props.write || props.writeWithoutResponse) {
-                  targetCharacteristic = char;
-                  addDebug(`    ✓ Using this characteristic for writing`);
-                  break;
-                }
-              }
-              if (targetCharacteristic) break;
-            } catch (charErr) {
-              addDebug(`  ✗ Cannot access service: ${charErr.message}`);
-            }
-          }
+          await port.open({ baudRate: 115200 });
+          const writer = port.writable.getWriter();
+          await writer.write(payload);
+          await writer.releaseLock();
+          await port.close();
         }
-
-        if (!targetCharacteristic) {
-          addDebug('ERROR: No writable characteristic found!');
-          throw new Error('Could not find a writable Bluetooth characteristic.');
-        }
-
-        addDebug(`Sending ${payload.length} bytes in chunks of 256 bytes...`);
-        const chunkSize = 256;
-        let chunkNum = 0;
-        for (let i = 0; i < payload.length; i += chunkSize) {
-          const chunk = payload.subarray(i, i + chunkSize);
-          try {
-            if (targetCharacteristic.properties.writeWithoutResponse) {
-              await targetCharacteristic.writeValueWithoutResponse(chunk);
-            } else {
-              await targetCharacteristic.writeValue(chunk);
-            }
-            chunkNum++;
-            addDebug(`  Chunk ${chunkNum}: sent ${chunk.length} bytes`);
-            await new Promise(r => setTimeout(r, 50));
-          } catch (err) {
-            addDebug(`  ERROR on chunk ${chunkNum}: ${err.message}`);
-            throw err;
-          }
-        }
-
-        server.disconnect();
-        addDebug('✓ Print sent successfully!');
-        alert('Print sent successfully!');
           
       } catch (err) {
-        addDebug(`✗ ERROR: ${err.message}`);
-        console.error('Print error:', err);
-        alert('Print Error: ' + err.message);
+        console.error(err);
+        alert('Print error: ' + err.message);
       }
     }
   </script>
