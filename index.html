@@ -308,13 +308,13 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn" onclick="printNativeTSPL()">
+          <button class="action-btn" onclick="printViaWebBluetooth()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print Instantly (Auto-Connect)</span>
+            <span>Print via Bluetooth</span>
           </button>
           <button class="action-btn usb-btn" onclick="window.print()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
-            <span>Local Print</span>
+            <span>Local Browser Print</span>
           </button>
         </div>
       </div>
@@ -379,6 +379,8 @@
 
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
+    let bluetoothDevice = null;
+    let bluetoothCharacteristic = null;
 
     window.addEventListener('DOMContentLoaded', () => {
       fields.forEach(id => {
@@ -440,7 +442,7 @@
       document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
     }
 
-    async function printNativeTSPL() {
+    async function printViaWebBluetooth() {
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
@@ -482,7 +484,7 @@
             
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            if (luminance < 140) {
+            if (luminance < 130) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
               buffer[byteIndex] &= ~(1 << bitPosition);
@@ -506,11 +508,10 @@
         }
 
         let tsplHeader = '';
-        tsplHeader += `SET TEAR ON\r\n`;
-        tsplHeader += `SPEED 3\r\n`;
-        tsplHeader += `DENSITY 10\r\n`;
         tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplHeader += `GAP 3 mm,0 mm\r\n`;
+        tsplHeader += `SPEED 3\r\n`;
+        tsplHeader += `DENSITY 10\r\n`;
         tsplHeader += `DIRECTION 1\r\n`;
         tsplHeader += `CLS\r\n`;
         tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
@@ -524,35 +525,74 @@
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-        if (isMobile) {
-          // --- ANDROID INTENT BRIDGE (Direct Component Target) ---
-          const blob = new Blob([payload], { type: 'application/octet-stream' });
-          const blobUrl = URL.createObjectURL(blob);
-          
-          const intentUrl = `intent:${blobUrl}#Intent;scheme=http;package=ru.a402d.rawbtprinter;component=ru.a402d.rawbtprinter/.activity.PrintDownloadActivity;end;`;
-          window.location.href = intentUrl;
-
-        } else {
-          // --- DESKTOP / WEB SERIAL AUTO-CONNECT ---
-          let ports = await navigator.serial.getPorts();
-          let port = ports[0];
-
-          if (!port) {
-            port = await navigator.serial.requestPort();
-          }
-
-          await port.open({ baudRate: 115200 });
-          const writer = port.writable.getWriter();
-          await writer.write(payload);
-          await writer.releaseLock();
-          await port.close();
+        if (!navigator.bluetooth) {
+          alert('Web Bluetooth is not supported on this browser or device.');
+          return;
         }
+
+        // Try to reconnect to previously paired device, or request a new one
+        let device = bluetoothDevice;
+        
+        if (!device) {
+          const permittedDevices = await navigator.bluetooth.getDevices();
+          if (permittedDevices.length > 0) {
+            device = permittedDevices[0];
+          } else {
+            device = await navigator.bluetooth.requestDevice({
+              acceptAllDevices: true
+            });
+          }
+        }
+
+        bluetoothDevice = device;
+
+        // Connect to GATT server
+        const server = await device.gatt.connect();
+        let targetCharacteristic = null;
+        
+        const services = await server.getPrimaryServices();
+        for (const service of services) {
+          try {
+            const characteristics = await service.getCharacteristics();
+            for (const char of characteristics) {
+              if (char.properties.write || char.properties.writeWithoutResponse) {
+                targetCharacteristic = char;
+                break;
+              }
+            }
+            if (targetCharacteristic) break;
+          } catch (e) {
+            // Skip restricted services
+          }
+        }
+
+        if (!targetCharacteristic) {
+          throw new Error('Could not find a writable characteristic on this device.');
+        }
+
+        bluetoothCharacteristic = targetCharacteristic;
+
+        // Send payload in chunks
+        const chunkSize = 512;
+        for (let i = 0; i < payload.length; i += chunkSize) {
+          const chunk = payload.subarray(i, i + chunkSize);
+          if (targetCharacteristic.properties.writeWithoutResponse) {
+            await targetCharacteristic.writeValueWithoutResponse(chunk);
+          } else {
+            await targetCharacteristic.writeValue(chunk);
+          }
+          // Small delay between chunks
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        alert('Print job sent successfully!');
+        server.disconnect();
           
       } catch (err) {
         console.error(err);
-        alert('Print error: ' + err.message);
+        alert('Print Error: ' + err.message);
+        bluetoothDevice = null;
+        bluetoothCharacteristic = null;
       }
     }
   </script>
