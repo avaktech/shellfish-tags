@@ -121,7 +121,7 @@
     }
 
     select {
-      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' str[...]");
       background-repeat: no-repeat;
       background-position: right 12px center;
       background-size: 16px;
@@ -506,6 +506,9 @@
     </div>
   </div>
 
+  <!-- Try to load html2canvas from CDN for best results. If it isn't available the script below falls back to an SVG foreignObject renderer. -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
@@ -593,7 +596,159 @@
       document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
     }
 
-    // Web Serial API Bluetooth Classic Printing Handler
+    // Helper: render tag element to a canvas at printer DPI. Tries html2canvas then falls back to SVG foreignObject.
+    async function renderTagToCanvas(tagEl, widthMm, heightMm, printerDpi = 203) {
+      const widthPx = Math.round((widthMm / 25.4) * printerDpi);
+      const heightPx = Math.round((heightMm / 25.4) * printerDpi);
+
+      // Try html2canvas if available
+      if (typeof html2canvas === 'function') {
+        try {
+          const scale = widthPx / tagEl.getBoundingClientRect().width || 1;
+          const canvas = await html2canvas(tagEl, {
+            backgroundColor: '#ffffff',
+            scale: scale,
+            useCORS: true,
+            allowTaint: true,
+            logging: false
+          });
+
+          // Ensure exact size
+          if (canvas.width === widthPx && canvas.height === heightPx) return canvas;
+
+          const resized = document.createElement('canvas');
+          resized.width = widthPx;
+          resized.height = heightPx;
+          const rctx = resized.getContext('2d');
+          rctx.fillStyle = '#fff';
+          rctx.fillRect(0, 0, widthPx, heightPx);
+          rctx.drawImage(canvas, 0, 0, widthPx, heightPx);
+          return resized;
+        } catch (e) {
+          console.warn('html2canvas render failed, falling back to SVG method', e);
+        }
+      }
+
+      // SVG foreignObject fallback
+      const cloned = tagEl.cloneNode(true);
+      // Inline computed styles to preserve appearance
+      function inlineStyles(sourceEl, targetEl) {
+        const sourceComputed = getComputedStyle(sourceEl);
+        for (const prop of sourceComputed) {
+          try { targetEl.style.setProperty(prop, sourceComputed.getPropertyValue(prop)); } catch (e) {}
+        }
+        for (let i = 0; i < sourceEl.children.length; i++) {
+          inlineStyles(sourceEl.children[i], targetEl.children[i]);
+        }
+      }
+
+      // Create a wrapper for correct dimensions
+      const wrapper = document.createElement('div');
+      wrapper.appendChild(cloned);
+      wrapper.style.width = getComputedStyle(tagEl).width;
+      wrapper.style.height = getComputedStyle(tagEl).height;
+
+      // Inline styles to try to preserve appearance
+      inlineStyles(tagEl, cloned);
+
+      const serialized = new XMLSerializer().serializeToString(wrapper);
+
+      const svgString = `<?xml version="1.0" encoding="utf-8"?>
+        <svg xmlns='http://www.w3.org/2000/svg' width='${widthPx}' height='${heightPx}'>
+          <foreignObject width='100%' height='100%'>
+            ${serialized}
+          </foreignObject>
+        </svg>`;
+
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.width = widthPx;
+      img.height = heightPx;
+      img.src = url;
+
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = (err) => reject(err);
+      }).catch(err => {
+        URL.revokeObjectURL(url);
+        throw new Error('SVG fallback failed to render: ' + err);
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = widthPx;
+      canvas.height = heightPx;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, widthPx, heightPx);
+      ctx.drawImage(img, 0, 0, widthPx, heightPx);
+
+      URL.revokeObjectURL(url);
+      return canvas;
+    }
+
+    // Convert canvas to 1-bit MSB-first bitmap Uint8Array
+    function canvasToMonochromeBitmap(canvas, threshold = 128) {
+      const widthPx = canvas.width;
+      const heightPx = canvas.height;
+      const ctx = canvas.getContext('2d');
+      const img = ctx.getImageData(0, 0, widthPx, heightPx).data;
+      const widthBytes = Math.ceil(widthPx / 8);
+      const bitmap = new Uint8Array(widthBytes * heightPx);
+
+      for (let y = 0; y < heightPx; y++) {
+        for (let x = 0; x < widthPx; x++) {
+          const i = (y * widthPx + x) * 4;
+          const r = img[i], g = img[i+1], b = img[i+2];
+          const lum = 0.299*r + 0.587*g + 0.114*b;
+          const bit = lum < threshold ? 1 : 0;
+          if (bit) {
+            const byteIndex = y * widthBytes + (x >> 3);
+            const bitMask = 0x80 >> (x & 7);
+            bitmap[byteIndex] |= bitMask;
+          }
+        }
+      }
+
+      return { bitmap, widthBytes, heightPx };
+    }
+
+    // Web Serial printing: render tag and send BITMAP binary to printer
+    async function printTagAsBitmap(numCopies, widthMm, heightMm, printerDpi = 203) {
+      const tagEl = document.getElementById('tag');
+      try {
+        const canvas = await renderTagToCanvas(tagEl, widthMm, heightMm, printerDpi);
+        const { bitmap, widthBytes, heightPx } = canvasToMonochromeBitmap(canvas);
+
+        const header = `SIZE ${widthMm} mm, ${heightMm} mm\r\nGAP 2 mm, 0 mm\r\nDIRECTION 1\r\nREFERENCE 0,0\r\nCLS\r\n`;
+        const bitmapCmd = `BITMAP 0,0,${widthBytes},${heightPx},0\r\n`;
+        const printCmd = `\r\nPRINT 1, ${numCopies}\r\n`;
+
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const writer = port.writable.getWriter();
+        const encoder = new TextEncoder();
+
+        // send header and BITMAP command text
+        await writer.write(encoder.encode(header + bitmapCmd));
+        // send binary bitmap
+        await writer.write(bitmap);
+        // send print command
+        await writer.write(encoder.encode(printCmd));
+
+        await writer.releaseLock();
+        await port.close();
+
+        alert(`Successfully sent ${numCopies} copy(ies) via Bluetooth Serial (bitmap)!`);
+      } catch (err) {
+        console.error('Bitmap print error', err);
+        alert('Bitmap print error: ' + (err && err.message ? err.message : err));
+      }
+    }
+
+    // Web Serial API Bluetooth Classic Printing Handler (replaced to use bitmap render)
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
         alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
@@ -609,87 +764,18 @@
       }
 
       const sizeValue = document.getElementById('tagSize').value;
-      
-      let widthMm = 101.6, heightMm = 152.4; // 4x6 inches default
+      let widthMm = 101.6, heightMm = 152.4; // 4x6 default
       if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
-      const bizName = document.getElementById('out-biz-name').textContent;
-      const cert = document.getElementById('out-cert').textContent;
-      const grant = document.getElementById('out-grant').textContent;
-      const dateStr = document.getElementById('out-date').textContent;
-      const timeStr = document.getElementById('out-time').textContent;
-      const areaStr = document.getElementById('out-area').textContent;
-      const speciesStr = document.getElementById('out-species').textContent;
-      const qtyStr = document.getElementById('out-quantity').textContent;
+      // Use 203 DPI by default for TSC Alpha 3RB; change to 300 if your printer is 300dpi
+      const PRINTER_DPI = 203;
 
-      let tsplCmds = [];
-      
-      tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-      tsplCmds.push(`GAP 2 mm, 0 mm`);
-      tsplCmds.push(`DIRECTION 1`);
-      tsplCmds.push(`CLS`);
-
-      tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
-
-      tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
-      tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
-      tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
-
-      tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
-      tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
-      
-      const midX = Math.round((widthMm * 8) / 2);
-      tsplCmds.push(`BAR ${midX}, 140, 3, 90`);
-      tsplCmds.push(`TEXT ${midX + 15}, 150, "1", 0, 1, 1, "GRANT #"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
-      tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
-      tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
-      tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
-      tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
-      tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
-
-      tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
-      tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
-      tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
-      tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
-
-      tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
-      tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
-      tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
-
-      tsplCmds.push(`PRINT 1, ${numCopies}`);
-
-      const tsplString = tsplCmds.join('\r\n') + '\r\n';
-
-      try {
-        // Prompt user to pick their paired Bluetooth Serial port
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-
-        const encoder = new TextEncoder();
-        const writer = port.writable.getWriter();
-        await writer.write(encoder.encode(tsplString));
-        await writer.releaseLock();
-        await port.close();
-
-        alert(`Successfully sent ${numCopies} copy(ies) via Bluetooth Serial!`);
-      } catch (error) {
-        console.error(error);
-        if (error.name !== 'NotFoundError') {
-          alert('Serial print error: ' + error.message);
-        }
-      }
+      // Use the bitmap render-and-send flow for pixel-perfect output
+      await printTagAsBitmap(numCopies, widthMm, heightMm, PRINTER_DPI);
     }
 
-    // Local USB / System Printer Handler
+    // Local USB / System Printer Handler (unchanged)
     function printViaUSB() {
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
       if (!copiesInput) return;
