@@ -429,13 +429,7 @@
         <div class="btn-row">
           <button class="action-btn bt-btn" onclick="printViaWebSerial()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span id="bt-btn-text">Bluetooth Print Preview</span>
-          </button>
-          <button class="action-btn test-btn" onclick="printBluetoothTest()">
-            Bluetooth Test Print
-          </button>
-          <button class="action-btn test-btn" onclick="printBluetoothImageTest()">
-            Bluetooth Image Test
+            <span id="bt-btn-text">Bluetooth Print Tag</span>
           </button>
           <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -506,8 +500,6 @@
     </div>
   </div>
 
-  <!-- Used to turn the visible tag into a printer-ready image for Bluetooth printing. -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
@@ -603,11 +595,6 @@
         return;
       }
 
-      if (typeof html2canvas !== 'function') {
-        alert('The preview renderer did not load. Connect to the internet, reload this page, and try again.');
-        return;
-      }
-
       const copiesInput = prompt('Enter number of tag copies to print:', '1');
       if (!copiesInput) return;
       const numCopies = parseInt(copiesInput, 10);
@@ -615,6 +602,8 @@
         alert('Please enter a valid number of copies.');
         return;
       }
+
+      return printTsplTag(numCopies);
 
       const sizeValue = document.getElementById('tagSize').value;
       const widthDots = 576; // Alpha-3R: 72 mm × 8 dots per mm
@@ -701,6 +690,68 @@
         }
       } finally {
         buttonText.textContent = 'Bluetooth Print Preview';
+      }
+    }
+
+    // Compact, reliable layout for Alpha-3R Bluetooth printing. Raw bitmap jobs
+    // are not accepted by this printer's Bluetooth firmware.
+    async function printTsplTag(numCopies) {
+      const sizeValue = document.getElementById('tagSize').value;
+      const tagHeightMm = sizeValue === '3x7' ? 177.8 : 127.0;
+      const tagHeightDots = Math.round(tagHeightMm * 8);
+      const footerY = tagHeightDots - 75;
+      const buttonText = document.getElementById('bt-btn-text');
+      const safeText = (value) => String(value).replace(/["\r\n]/g, ' ');
+      const value = (id) => safeText(document.getElementById(id).textContent);
+      const command =
+        `SIZE 72 mm, ${tagHeightMm} mm\r\n` +
+        'GAP 0,0\r\nREFERENCE 0,0\r\nDIRECTION 1\r\nCLS\r\n' +
+        `BOX 10,10,566,${tagHeightDots - 10},3\r\n` +
+        `TEXT 35,30,"3",0,1,1,"${value('out-biz-name')}"\r\n` +
+        'TEXT 85,65,"2",0,1,1,"HARVESTER SHELLSTOCK TAG"\r\n' +
+        'BAR 20,105,536,3\r\n' +
+        'TEXT 30,125,"1",0,1,1,"HARVESTER CERT / PERMIT #"\r\n' +
+        `TEXT 30,150,"2",0,1,1,"${value('out-cert')}"\r\n` +
+        'TEXT 290,125,"1",0,1,1,"GRANT #"\r\n' +
+        `TEXT 290,150,"2",0,1,1,"${value('out-grant')}"\r\n` +
+        'BAR 20,195,536,2\r\n' +
+        'TEXT 30,215,"1",0,1,1,"HARVEST DATE"\r\n' +
+        `TEXT 30,240,"2",0,1,1,"${value('out-date')}"\r\n` +
+        'TEXT 290,215,"1",0,1,1,"HARVEST TIME"\r\n' +
+        `TEXT 290,240,"2",0,1,1,"${value('out-time')}"\r\n` +
+        'BAR 20,285,536,2\r\n' +
+        'TEXT 30,305,"1",0,1,1,"GROWING AREA / STATUS"\r\n' +
+        `TEXT 30,330,"2",0,1,1,"${value('out-area')}"\r\n` +
+        'BAR 20,375,536,2\r\n' +
+        'TEXT 30,395,"1",0,1,1,"SPECIES & SIZE"\r\n' +
+        `TEXT 30,420,"2",0,1,1,"${value('out-species')}"\r\n` +
+        'TEXT 290,395,"1",0,1,1,"QUANTITY"\r\n' +
+        `TEXT 290,420,"2",0,1,1,"${value('out-quantity')}"\r\n` +
+        'BAR 20,470,536,3\r\n' +
+        `TEXT 25,${footerY},"1",0,1,1,"TAG REQUIRED UNTIL CONTAINER IS EMPTY OR RETAGGED"\r\n` +
+        `TEXT 70,${footerY + 20},"1",0,1,1,"KEEP ON FILE FOR 90 DAYS"\r\n` +
+        `PRINT 1,${numCopies}\r\n`;
+
+      buttonText.textContent = 'Sending tag…';
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        const writer = port.writable.getWriter();
+        try {
+          await writer.write(new TextEncoder().encode(command));
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } finally {
+          writer.releaseLock();
+          await port.close();
+        }
+        alert(`Sent ${numCopies} tag(s) to the Alpha-3R.`);
+      } catch (error) {
+        console.error(error);
+        if (error.name !== 'NotFoundError') {
+          alert('Bluetooth print error: ' + error.message);
+        }
+      } finally {
+        buttonText.textContent = 'Bluetooth Print Tag';
       }
     }
 
