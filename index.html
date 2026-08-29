@@ -367,7 +367,7 @@
         </div>
 
         <div class="tag-icon-container">
-          <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'black\' stroke-width=\'2\'><path d=\'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z\'/><path d=\'M12 6v12M6 12h12\'/></svg>'">
+          <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2236%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z%22/></svg>'">
         </div>
 
         <div class="tag-footer">
@@ -460,7 +460,8 @@
         const canvas = await html2canvas(tagElement, {
           scale: 2,
           useCORS: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          logging: false
         });
 
         const ctx = canvas.getContext('2d');
@@ -470,9 +471,11 @@
         const height = canvas.height;
         const bytesPerRow = Math.ceil(width / 8);
         
+        // Create bitmap buffer (white = 0xFF, black = 0x00 per byte)
         const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF);
+        buffer.fill(0xFF); // Start with white
 
+        // Convert to 1-bit monochrome (correct bit order for TSC)
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
             const offset = (y * width + x) * 4;
@@ -480,16 +483,20 @@
             const g = imgData.data[offset + 1];
             const b = imgData.data[offset + 2];
             
+            // Calculate luminance (standard formula)
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            if (luminance < 130) {
+            // If pixel is dark enough, set bit to 0 (black)
+            // Bit 7 = leftmost pixel in byte
+            if (luminance < 128) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
-              buffer[byteIndex] &= ~(1 << bitPosition);
+              buffer[byteIndex] &= ~(1 << bitPosition); // Set bit to 0
             }
           }
         }
 
+        // Get tag size and convert to mm
         const sizeVal = document.getElementById('tagSize').value;
         let widthMm = 76;
         let heightMm = 127;
@@ -505,18 +512,23 @@
           heightMm = 152; 
         }
 
-        let tsplHeader = '';
-        tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
-        tsplHeader += `GAP 3 mm,0 mm\r\n`;
-        tsplHeader += `SPEED 3\r\n`;
-        tsplHeader += `DENSITY 10\r\n`;
-        tsplHeader += `DIRECTION 1\r\n`;
-        tsplHeader += `CLS\r\n`;
-        tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
+        // Build TSPL command
+        let tsplCommand = '';
+        tsplCommand += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
+        tsplCommand += `GAP 3 mm,0 mm\r\n`;
+        tsplCommand += `SPEED 3\r\n`;
+        tsplCommand += `DENSITY 10\r\n`;
+        tsplCommand += `DIRECTION 1\r\n`;
+        tsplCommand += `CLS\r\n`;
+        // BITMAP format: x, y, width_in_bytes, height, mode, data
+        // mode: 0 = replace, 1 = OR
+        tsplCommand += `BITMAP 0,0,${bytesPerRow},${height},0,`;
 
-        const headerBytes = new TextEncoder().encode(tsplHeader);
+        // Encode header
+        const headerBytes = new TextEncoder().encode(tsplCommand);
         const footerBytes = new TextEncoder().encode(`\r\nPRINT ${copies},1\r\n`);
 
+        // Combine: header + binary data + footer
         const totalLength = headerBytes.length + buffer.length + footerBytes.length;
         const payload = new Uint8Array(totalLength);
         payload.set(headerBytes, 0);
@@ -528,7 +540,7 @@
           return;
         }
 
-        // Check for previously authorized printer to bypass picker automatically
+        // Request device
         let device;
         const permittedDevices = await navigator.bluetooth.getDevices();
         
@@ -538,9 +550,9 @@
           device = await navigator.bluetooth.requestDevice({
             acceptAllDevices: true,
             optionalServices: [
-              '000018f0-0000-1000-8000-00805f9b34fb',
-              'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-              '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+              '000018f0-0000-1000-8000-00805f9b34fb', // Device Information
+              'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Some proprietary services
+              '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // TX Power
             ]
           });
         }
@@ -548,6 +560,7 @@
         const server = await device.gatt.connect();
         let targetCharacteristic = null;
         
+        // Find first writable characteristic
         const services = await server.getPrimaryServices();
         for (const service of services) {
           try {
@@ -560,28 +573,37 @@
             }
             if (targetCharacteristic) break;
           } catch (e) {
-            // Skip restricted services
+            console.warn('Service access restricted:', e);
           }
         }
 
         if (!targetCharacteristic) {
-          throw new Error('Could not find a writable Bluetooth printing characteristic on this device.');
+          throw new Error('Could not find a writable Bluetooth characteristic.');
         }
 
-        const chunkSize = 512;
+        // Send in chunks with small delays
+        const chunkSize = 256; // Reduce chunk size for TSC Alpha 3R
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.subarray(i, i + chunkSize);
-          if (targetCharacteristic.properties.writeWithoutResponse) {
-            await targetCharacteristic.writeValueWithoutResponse(chunk);
-          } else {
-            await targetCharacteristic.writeValue(chunk);
+          try {
+            if (targetCharacteristic.properties.writeWithoutResponse) {
+              await targetCharacteristic.writeValueWithoutResponse(chunk);
+            } else {
+              await targetCharacteristic.writeValue(chunk);
+            }
+            // Add delay between chunks
+            await new Promise(r => setTimeout(r, 50));
+          } catch (err) {
+            console.error('Chunk write failed:', err);
+            throw err;
           }
         }
 
         server.disconnect();
+        alert('Print sent successfully!');
           
       } catch (err) {
-        console.error(err);
+        console.error('Print error:', err);
         alert('Print Error: ' + err.message);
       }
     }
