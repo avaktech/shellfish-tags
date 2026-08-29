@@ -434,6 +434,9 @@
           <button class="action-btn test-btn" onclick="printBluetoothTest()">
             Bluetooth Test Print
           </button>
+          <button class="action-btn test-btn" onclick="printBluetoothImageTest()">
+            Bluetooth Image Test
+          </button>
           <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
             <span>USB / Local Print</span>
@@ -732,6 +735,49 @@
         console.error(error);
         if (error.name !== 'NotFoundError') {
           alert('Bluetooth test error: ' + error.message);
+        }
+      }
+    }
+
+    // Confirms the printer accepts a TSPL bitmap before a full preview is sent.
+    async function printBluetoothImageTest() {
+      if (!('serial' in navigator)) {
+        alert('Bluetooth printing requires a current version of Chrome on Android.');
+        return;
+      }
+
+      const encoder = new TextEncoder();
+      const header = encoder.encode(
+        'SIZE 72 mm, 127 mm\r\n' +
+        'GAP 0,0\r\n' +
+        'DIRECTION 1\r\n' +
+        'CLS\r\n' +
+        'TEXT 30,30,"3",0,1,1,"IMAGE TEST"\r\n' +
+        'BITMAP 30,100,8,32,0,'
+      );
+      const bitmap = new Uint8Array(8 * 32);
+      for (let row = 0; row < 32; row++) {
+        bitmap.fill(row % 2 === 0 ? 0xAA : 0x55, row * 8, (row + 1) * 8);
+      }
+      const footer = encoder.encode('\r\nPRINT 1,1\r\n');
+
+      try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        const writer = port.writable.getWriter();
+        try {
+          await writer.write(header);
+          await writer.write(bitmap);
+          await writer.write(footer);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } finally {
+          writer.releaseLock();
+          await port.close();
+        }
+      } catch (error) {
+        console.error(error);
+        if (error.name !== 'NotFoundError') {
+          alert('Bluetooth image test error: ' + error.message);
         }
       }
     }
