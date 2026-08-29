@@ -584,14 +584,14 @@
           return;
         }
 
-        addDebug('Requesting Bluetooth device...');
+        // Filter for RF-BHS (TSC Alpha 3R) with SPP service UUID
+        addDebug('Requesting Bluetooth device (filtering for RF-BHS)...');
         const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
+          filters: [
+            { namePrefix: 'RF-BHS' }
+          ],
           optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb',
-            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
-            '00001101-0000-1000-8000-00805f9b34fb' // SPP Service UUID
+            '00001101-0000-1000-8000-00805f9b34fb' // Serial Port Profile (SPP)
           ]
         });
 
@@ -599,36 +599,59 @@
         addDebug('Connecting to GATT server...');
 
         const server = await device.gatt.connect();
-        addDebug('GATT server connected');
+        addDebug('GATT server connected ✓');
 
-        // List all available services
-        addDebug('Discovering services...');
-        const services = await server.getPrimaryServices();
-        addDebug(`Found ${services.length} services`);
-
+        // Try to get SPP service first
+        addDebug('Attempting to discover SPP service...');
         let targetCharacteristic = null;
         
-        for (let i = 0; i < services.length; i++) {
-          const service = services[i];
-          addDebug(`Service ${i}: ${service.uuid}`);
-          try {
-            const characteristics = await service.getCharacteristics();
-            addDebug(`  → ${characteristics.length} characteristics`);
+        try {
+          const sppService = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+          addDebug('SPP Service found ✓');
+          
+          const characteristics = await sppService.getCharacteristics();
+          addDebug(`${characteristics.length} characteristics in SPP service`);
+          
+          for (let i = 0; i < characteristics.length; i++) {
+            const char = characteristics[i];
+            const props = char.properties;
+            addDebug(`  Char ${i}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
             
-            for (let j = 0; j < characteristics.length; j++) {
-              const char = characteristics[j];
-              const props = char.properties;
-              addDebug(`    Char ${j}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
-              
-              if (props.write || props.writeWithoutResponse) {
-                targetCharacteristic = char;
-                addDebug(`    ✓ Using this characteristic for writing`);
-                break;
-              }
+            if (props.write || props.writeWithoutResponse) {
+              targetCharacteristic = char;
+              addDebug(`  ✓ Using this characteristic for writing`);
+              break;
             }
-            if (targetCharacteristic) break;
-          } catch (e) {
-            addDebug(`  ✗ Cannot access service: ${e.message}`);
+          }
+        } catch (e) {
+          addDebug(`SPP Service not available: ${e.message}`);
+          addDebug('Scanning all services...');
+          
+          const services = await server.getPrimaryServices();
+          addDebug(`Found ${services.length} services`);
+
+          for (let i = 0; i < services.length; i++) {
+            const service = services[i];
+            addDebug(`Service ${i}: ${service.uuid}`);
+            try {
+              const characteristics = await service.getCharacteristics();
+              addDebug(`  → ${characteristics.length} characteristics`);
+              
+              for (let j = 0; j < characteristics.length; j++) {
+                const char = characteristics[j];
+                const props = char.properties;
+                addDebug(`    Char ${j}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
+                
+                if (props.write || props.writeWithoutResponse) {
+                  targetCharacteristic = char;
+                  addDebug(`    ✓ Using this characteristic for writing`);
+                  break;
+                }
+              }
+              if (targetCharacteristic) break;
+            } catch (charErr) {
+              addDebug(`  ✗ Cannot access service: ${charErr.message}`);
+            }
           }
         }
 
@@ -637,7 +660,7 @@
           throw new Error('Could not find a writable Bluetooth characteristic.');
         }
 
-        addDebug(`Sending ${payload.length} bytes in chunks...`);
+        addDebug(`Sending ${payload.length} bytes in chunks of 256 bytes...`);
         const chunkSize = 256;
         let chunkNum = 0;
         for (let i = 0; i < payload.length; i += chunkSize) {
@@ -649,10 +672,10 @@
               await targetCharacteristic.writeValue(chunk);
             }
             chunkNum++;
-            addDebug(`Chunk ${chunkNum}: sent ${chunk.length} bytes`);
+            addDebug(`  Chunk ${chunkNum}: sent ${chunk.length} bytes`);
             await new Promise(r => setTimeout(r, 50));
           } catch (err) {
-            addDebug(`ERROR on chunk ${chunkNum}: ${err.message}`);
+            addDebug(`  ERROR on chunk ${chunkNum}: ${err.message}`);
             throw err;
           }
         }
