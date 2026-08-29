@@ -138,6 +138,19 @@
 
     .usb-btn { background-color: #457b9d; }
 
+    .debug-box {
+      grid-column: 1 / -1;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #333;
+    }
+
     /* Visual Preview Layout Proportions */
     .tag {
       background: white;
@@ -317,6 +330,13 @@
             <span>Local Browser Print</span>
           </button>
         </div>
+
+        <div id="debugLog" class="debug-box" style="display:none;">
+          <div id="debugContent"></div>
+        </div>
+        <button class="action-btn" onclick="toggleDebug()" style="background-color: #666;">
+          <span id="debugToggleText">Show Debug Log</span>
+        </button>
       </div>
     </div>
 
@@ -378,6 +398,22 @@
   </div>
 
   <script>
+    let debugMode = false;
+
+    function addDebug(msg) {
+      console.log(msg);
+      const debugContent = document.getElementById('debugContent');
+      const timestamp = new Date().toLocaleTimeString();
+      debugContent.innerHTML += `[${timestamp}] ${msg}<br>`;
+      debugContent.scrollTop = debugContent.scrollHeight;
+    }
+
+    function toggleDebug() {
+      debugMode = !debugMode;
+      document.getElementById('debugLog').style.display = debugMode ? 'block' : 'none';
+      document.getElementById('debugToggleText').textContent = debugMode ? 'Hide Debug Log' : 'Show Debug Log';
+    }
+
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -441,13 +477,21 @@
     }
 
     async function printViaWebBluetooth() {
+      debugMode = true;
+      document.getElementById('debugLog').style.display = 'block';
+      document.getElementById('debugToggleText').textContent = 'Hide Debug Log';
+      document.getElementById('debugContent').innerHTML = '';
+
       const copies = prompt('Enter number of copies:', '1');
       if (!copies) return;
 
       const tagElement = document.getElementById('tag');
       
       try {
+        addDebug('Starting bitmap to Bluetooth print...');
+
         if (typeof html2canvas === 'undefined') {
+          addDebug('Loading html2canvas library...');
           await new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -455,8 +499,10 @@
             script.onerror = reject;
             document.head.appendChild(script);
           });
+          addDebug('html2canvas loaded');
         }
 
+        addDebug('Converting tag to canvas...');
         const canvas = await html2canvas(tagElement, {
           scale: 2,
           useCORS: true,
@@ -471,11 +517,11 @@
         const height = canvas.height;
         const bytesPerRow = Math.ceil(width / 8);
         
-        // Create bitmap buffer (white = 0xFF, black = 0x00 per byte)
-        const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF); // Start with white
+        addDebug(`Canvas size: ${width}x${height}px → ${bytesPerRow} bytes/row`);
 
-        // Convert to 1-bit monochrome (correct bit order for TSC)
+        const buffer = new Uint8Array(bytesPerRow * height);
+        buffer.fill(0xFF);
+
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
             const offset = (y * width + x) * 4;
@@ -483,20 +529,18 @@
             const g = imgData.data[offset + 1];
             const b = imgData.data[offset + 2];
             
-            // Calculate luminance (standard formula)
             const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
             
-            // If pixel is dark enough, set bit to 0 (black)
-            // Bit 7 = leftmost pixel in byte
             if (luminance < 128) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
-              buffer[byteIndex] &= ~(1 << bitPosition); // Set bit to 0
+              buffer[byteIndex] &= ~(1 << bitPosition);
             }
           }
         }
 
-        // Get tag size and convert to mm
+        addDebug('Bitmap conversion complete');
+
         const sizeVal = document.getElementById('tagSize').value;
         let widthMm = 76;
         let heightMm = 127;
@@ -512,7 +556,8 @@
           heightMm = 152; 
         }
 
-        // Build TSPL command
+        addDebug(`Tag size: ${widthMm}mm x ${heightMm}mm`);
+
         let tsplCommand = '';
         tsplCommand += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
         tsplCommand += `GAP 3 mm,0 mm\r\n`;
@@ -520,62 +565,81 @@
         tsplCommand += `DENSITY 10\r\n`;
         tsplCommand += `DIRECTION 1\r\n`;
         tsplCommand += `CLS\r\n`;
-        // BITMAP format: x, y, width_in_bytes, height, mode, data
-        // mode: 0 = replace, 1 = OR
         tsplCommand += `BITMAP 0,0,${bytesPerRow},${height},0,`;
 
-        // Encode header
         const headerBytes = new TextEncoder().encode(tsplCommand);
         const footerBytes = new TextEncoder().encode(`\r\nPRINT ${copies},1\r\n`);
 
-        // Combine: header + binary data + footer
         const totalLength = headerBytes.length + buffer.length + footerBytes.length;
         const payload = new Uint8Array(totalLength);
         payload.set(headerBytes, 0);
         payload.set(buffer, headerBytes.length);
         payload.set(footerBytes, headerBytes.length + buffer.length);
 
+        addDebug(`Total payload: ${totalLength} bytes`);
+
         if (!navigator.bluetooth) {
+          addDebug('ERROR: Web Bluetooth not supported!');
           alert('Web Bluetooth is not supported on this browser or device.');
           return;
         }
 
-        // Always prompt for device (getDevices() not widely supported)
+        addDebug('Requesting Bluetooth device...');
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [
-            '000018f0-0000-1000-8000-00805f9b34fb', // Device Information
-            'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // Some proprietary services
-            '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // TX Power
+            '000018f0-0000-1000-8000-00805f9b34fb',
+            'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+            '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+            '00001101-0000-1000-8000-00805f9b34fb' // SPP Service UUID
           ]
         });
 
+        addDebug(`Device selected: ${device.name} (${device.id})`);
+        addDebug('Connecting to GATT server...');
+
         const server = await device.gatt.connect();
+        addDebug('GATT server connected');
+
+        // List all available services
+        addDebug('Discovering services...');
+        const services = await server.getPrimaryServices();
+        addDebug(`Found ${services.length} services`);
+
         let targetCharacteristic = null;
         
-        // Find first writable characteristic
-        const services = await server.getPrimaryServices();
-        for (const service of services) {
+        for (let i = 0; i < services.length; i++) {
+          const service = services[i];
+          addDebug(`Service ${i}: ${service.uuid}`);
           try {
             const characteristics = await service.getCharacteristics();
-            for (const char of characteristics) {
-              if (char.properties.write || char.properties.writeWithoutResponse) {
+            addDebug(`  → ${characteristics.length} characteristics`);
+            
+            for (let j = 0; j < characteristics.length; j++) {
+              const char = characteristics[j];
+              const props = char.properties;
+              addDebug(`    Char ${j}: ${char.uuid} [write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}]`);
+              
+              if (props.write || props.writeWithoutResponse) {
                 targetCharacteristic = char;
+                addDebug(`    ✓ Using this characteristic for writing`);
                 break;
               }
             }
             if (targetCharacteristic) break;
           } catch (e) {
-            console.warn('Service access restricted:', e);
+            addDebug(`  ✗ Cannot access service: ${e.message}`);
           }
         }
 
         if (!targetCharacteristic) {
+          addDebug('ERROR: No writable characteristic found!');
           throw new Error('Could not find a writable Bluetooth characteristic.');
         }
 
-        // Send in chunks with small delays
-        const chunkSize = 256; // Reduce chunk size for TSC Alpha 3R
+        addDebug(`Sending ${payload.length} bytes in chunks...`);
+        const chunkSize = 256;
+        let chunkNum = 0;
         for (let i = 0; i < payload.length; i += chunkSize) {
           const chunk = payload.subarray(i, i + chunkSize);
           try {
@@ -584,18 +648,21 @@
             } else {
               await targetCharacteristic.writeValue(chunk);
             }
-            // Add delay between chunks
+            chunkNum++;
+            addDebug(`Chunk ${chunkNum}: sent ${chunk.length} bytes`);
             await new Promise(r => setTimeout(r, 50));
           } catch (err) {
-            console.error('Chunk write failed:', err);
+            addDebug(`ERROR on chunk ${chunkNum}: ${err.message}`);
             throw err;
           }
         }
 
         server.disconnect();
+        addDebug('✓ Print sent successfully!');
         alert('Print sent successfully!');
           
       } catch (err) {
+        addDebug(`✗ ERROR: ${err.message}`);
         console.error('Print error:', err);
         alert('Print Error: ' + err.message);
       }
