@@ -667,8 +667,18 @@
         const writer = port.writable.getWriter();
         try {
           await writer.write(header);
-          await writer.write(bitmap);
+          // Mobile-printer Bluetooth buffers are small. Sending a tag image as one
+          // large write can make the printer acknowledge the connection but discard
+          // the unfinished bitmap. Pace the image in small, ordered pieces instead.
+          const chunkSize = 512;
+          for (let offset = 0; offset < bitmap.length; offset += chunkSize) {
+            const chunk = bitmap.subarray(offset, Math.min(offset + chunkSize, bitmap.length));
+            await writer.write(chunk);
+            buttonText.textContent = `Sending preview… ${Math.round(((offset + chunk.length) / bitmap.length) * 100)}%`;
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
           await writer.write(footer);
+          await new Promise(resolve => setTimeout(resolve, 250));
         } finally {
           writer.releaseLock();
           await port.close();
