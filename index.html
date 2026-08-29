@@ -3,20 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>TAG MAKER - AUTO BLUETOOTH WYSIWYG</title>
+  <title>TAG MAKER</title>
 
   <!-- iOS / Apple Home Screen Shortcut Config -->
-  <link rel="apple-touch-icon" href="oyster-icon.jpg">
+  <link rel="apple-touch-icon" href="oyster-icon.png">
   <meta name="apple-mobile-web-app-title" content="TAG MAKER">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <!-- Android & Chrome Web App Manifest Config -->
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/jpeg" href="oyster-icon.jpg">
+
+  <!-- Favicon for Standard Web Browsers -->
+  <link rel="icon" type="image/png" href="oyster-icon.png">
 
   <style id="dynamic-print-style">
-    @page { size: 3in 5in; margin: 0; }
+    @page { size: 4in 6in; margin: 0; }
   </style>
   <style>
     * {
@@ -41,8 +43,13 @@
     }
 
     @media (min-width: 800px) {
-      body { padding: 20px; }
-      .app-container { flex-direction: row; gap: 20px; }
+      body {
+        padding: 20px;
+      }
+      .app-container {
+        flex-direction: row;
+        gap: 20px;
+      }
     }
 
     .form-section {
@@ -80,7 +87,9 @@
     }
 
     @media (min-width: 480px) {
-      .form-grid { grid-template-columns: 1fr 1fr; }
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
     }
 
     .form-group {
@@ -107,7 +116,16 @@
       font-size: 16px;
       width: 100%;
       background-color: #fff;
-      text-transform: uppercase;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
+      padding-right: 36px;
     }
 
     .btn-row {
@@ -132,122 +150,173 @@
       justify-content: center;
       align-items: center;
       gap: 8px;
-      background-color: #2a9d8f;
     }
-    .action-btn:active { background-color: #21867a; }
-    .action-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .print-btn { background-color: #1d3557; }
+    .print-btn:active { background-color: #457b9d; }
+
+    .bt-btn { background-color: #2a9d8f; }
+    .bt-btn:active { background-color: #21867a; }
 
     .usb-btn { background-color: #457b9d; }
+    .usb-btn:active { background-color: #1d3557; }
 
-    #status-message {
-      grid-column: 1 / -1;
-      padding: 12px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      display: none;
-    }
-
-    #status-message.info {
-      background-color: #e3f2fd;
-      color: #1976d2;
-      border: 1px solid #90caf9;
-    }
-
-    #status-message.error {
-      background-color: #ffebee;
-      color: #c62828;
-      border: 1px solid #ef9a9a;
-    }
-
-    #status-message.success {
-      background-color: #e8f5e9;
-      color: #2e7d32;
-      border: 1px solid #a5d6a7;
-    }
-
-    /* Visual Preview Layout Proportions */
+    /* Tag Layout */
     .tag {
       background: white;
       border: 3px solid #000;
-      padding: 0.3in 0.15in;
+      padding: 0.2in;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      text-transform: uppercase;
+      transform-origin: top center;
     }
-    .tag.size-3x5 { width: 3in; height: 5in; min-width: 3in; min-height: 5in; }
-    .tag.size-3x7 { width: 3in; height: 7in; min-width: 3in; min-height: 7in; }
-    .tag.size-2-516x7 { width: 2.3125in; height: 7in; min-width: 2.3125in; min-height: 7in; }
-    .tag.size-4x6 { width: 4in; height: 6in; min-width: 4in; min-height: 6in; }
+
+    .tag.size-4x6 {
+      width: 4in;
+      height: 6in;
+      min-width: 4in;
+      min-height: 6in;
+    }
+
+    .tag.size-3x7 {
+      width: 3in;
+      height: 7in;
+      min-width: 3in;
+      min-height: 7in;
+      padding: 0.15in;
+    }
+
+    .tag.size-3x5 {
+      width: 3in;
+      height: 5in;
+      min-width: 3in;
+      min-height: 5in;
+      padding: 0.12in;
+    }
 
     .tag-header {
       text-align: center;
       border-bottom: 3px solid #000;
-      padding-bottom: 8px;
+      padding-bottom: 6px;
     }
-    .tag-header h1 { margin: 0; font-size: 13pt; font-weight: 900; }
-    .tag-header p { margin: 6px 0 0 0; font-size: 9pt; font-weight: 900; }
+
+    .tag-header h1 {
+      margin: 0;
+      font-size: 16pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      line-height: 1.1;
+    }
+
+    .tag.size-3x7 .tag-header h1,
+    .tag.size-3x5 .tag-header h1 {
+      font-size: 13pt;
+    }
+
+    .tag-header p {
+      margin: 4px 0 0 0;
+      font-size: 10pt;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .tag.size-3x5 .tag-header p {
+      font-size: 8.5pt;
+    }
 
     .tag-body {
       display: flex;
       flex-direction: column;
       justify-content: space-around;
       flex-grow: 1;
-      padding: 6px 0;
+      padding: 4px 0;
     }
 
     .tag-row {
       display: flex;
       border-bottom: 2px solid #000;
-      padding-bottom: 4px;
-      margin-bottom: 4px;
+      padding-bottom: 3px;
+      margin-bottom: 3px;
     }
 
     .tag-col {
       flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      text-align: center;
     }
+
     .tag-col:not(:last-child) {
       border-right: 2px solid #000;
       padding-right: 6px;
       margin-right: 6px;
     }
 
-    .field-label { font-size: 7.5pt; font-weight: 900; width: 100%; }
-    .field-value { font-size: 10.5pt; font-weight: 900; margin-top: 3px; width: 100%; }
+    .field-label {
+      font-size: 7.5pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #000;
+    }
 
-    .tag-icon-container {
+    .field-value {
+      font-size: 11pt;
+      font-weight: 900;
+      margin-top: 2px;
+      word-break: break-word;
+      line-height: 1.15;
+    }
+
+    .icon-container {
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 4px 0;
+      height: 40px;
+      margin: 2px 0;
     }
-    .tag-icon {
-      width: 36px;
-      height: 36px;
+
+    .icon-container img {
+      max-height: 100%;
+      max-width: 100%;
       object-fit: contain;
-      filter: grayscale(100%) contrast(200%);
     }
 
     .tag-footer {
       border-top: 3px solid #000;
-      padding-top: 6px;
-      font-size: 7.5pt;
-      font-weight: 900;
-      text-align: center;
-      line-height: 1.15;
+      padding-top: 4px;
+      font-size: 7pt;
+      font-weight: 700;
+      text-align: justify;
+      line-height: 1.1;
+      text-transform: uppercase;
     }
 
     @media print {
-      body { background: white; padding: 0; margin: 0; }
-      .no-print { display: none !important; }
-      .preview-section { display: block; padding: 0; }
-      .tag { box-shadow: none; border: 3px solid #000; page-break-after: always; margin: 0; }
+      body {
+        background: white;
+        padding: 0;
+        margin: 0;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .preview-section {
+        display: block;
+        padding: 0;
+        overflow: visible;
+      }
+      .tag {
+        box-shadow: none;
+        border: 3px solid #000;
+        page-break-after: always;
+        margin: 0;
+      }
+      .tag.size-4x6 { width: 4in; height: 6in; }
+      .tag.size-3x7 { width: 3in; height: 7in; }
+      .tag.size-3x5 { width: 3in; height: 5in; }
     }
   </style>
 </head>
@@ -255,17 +324,14 @@
 
   <div class="app-container">
     <div class="form-section no-print">
-      <h2>Harvest Tag Generator (Auto Bluetooth)</h2>
+      <h2>Harvest Tag Generator</h2>
       <div class="form-grid">
-        <div id="status-message"></div>
-
         <div class="form-group full">
-          <label for="tagSize">Tag Size Preset</label>
+          <label for="tagSize">Tag Size</label>
           <select id="tagSize">
-            <option value="3x5">3" x 5" (Standard Thermal)</option>
-            <option value="3x7">3" x 7" (Standard Thermal)</option>
-            <option value="2-516x7">2 5/16" x 7" (Narrow Format)</option>
-            <option value="4x6">4" x 6" (Wide Shipping/Tag)</option>
+            <option value="4x6">4" x 6" (Standard Thermal)</option>
+            <option value="3x7">3" x 7" (Narrow Thermal)</option>
+            <option value="3x5">3" x 5" (Compact Thermal)</option>
           </select>
         </div>
 
@@ -301,6 +367,9 @@
             <option value="Soft Shell Clam">Soft Shell Clam</option>
             <option value="Eastern Oyster">Eastern Oyster</option>
             <option value="Razor Clam">Razor Clam</option>
+            <option value="Atlantic Sea Clam">Atlantic Sea Clam</option>
+            <option value="Sea Scallop">Sea Scallop</option>
+            <option value="Bay Scallop">Bay Scallop</option>
           </select>
         </div>
 
@@ -320,12 +389,39 @@
             <option value="50ct">50ct</option>
             <option value="Bulk">Bulk</option>
             <option value="Bushel">Bushel</option>
+            <option value="Cage">Cage</option>
           </select>
         </div>
 
         <div class="form-group full">
           <label for="growingArea">MA Growing Area</label>
-          <input type="text" id="growingArea" placeholder="e.g. CCB11 - Wellfleet Harbor">
+          <input type="text" id="growingArea" placeholder="Type area code or town name..." list="areaList">
+          <datalist id="areaList">
+            <!-- Buzzards Bay -->
+            <option value="BB1 - Westport South Coastal">
+            <option value="BB2 - Richmond Pond">
+            <option value="BB3 - West Branch Westport River">
+            <option value="BB4 - East Branch Westport River">
+            <option value="BB7 - Dartmouth Center Coastal">
+            <option value="BB12 - Apponagansett Bay">
+            <option value="BB15 - New Bedford/Fairhaven Harbor">
+            <!-- Cape Cod Bay -->
+            <option value="CCB3 - Provincetown Outer Harbor">
+            <option value="CCB11 - Wellfleet Harbor">
+            <option value="CCB17 - Orleans North Coastal">
+            <option value="CCB31 - Barnstable Harbor">
+            <!-- South Cape Cod -->
+            <option value="SC15 - Waquoit Bay">
+            <option value="SC21 - Cotuit Bay">
+            <option value="SC28 - Lewis Bay">
+            <option value="SC33 - Bass River South">
+            <option value="SC53 - Pleasant Bay">
+            <!-- Martha's Vineyard / Nantucket -->
+            <option value="V2 - Menemsha Inlet and Pond">
+            <option value="V11 - Lagoon Pond">
+            <option value="V20 - Katama Bay">
+            <option value="NT3 - Nantucket Harbor East">
+          </datalist>
         </div>
 
         <div class="form-group full">
@@ -337,25 +433,26 @@
         </div>
 
         <div class="btn-row">
-          <button class="action-btn" id="bt-btn" onclick="printViaWebBluetooth()">
+          <button class="action-btn bt-btn" onclick="printViaWebSerial()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span>Print via Bluetooth</span>
+            <span id="bt-btn-text">BT Serial Print</span>
           </button>
-          <button class="action-btn usb-btn" onclick="window.print()">
+          <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
-            <span>Local Browser Print</span>
+            <span>USB / Local Print</span>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Live Preview -->
+    <!-- Live Preview Tag Container -->
     <div class="preview-section" id="previewContainer">
-      <div class="tag size-3x5" id="tag">
+      <div class="tag size-4x6" id="tag">
         <div class="tag-header">
           <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
           <p>HARVESTER SHELLSTOCK TAG</p>
         </div>
+
         <div class="tag-body">
           <div class="tag-row">
             <div class="tag-col">
@@ -367,6 +464,7 @@
               <span class="field-value" id="out-grant">--</span>
             </div>
           </div>
+
           <div class="tag-row">
             <div class="tag-col">
               <span class="field-label">Harvest Date</span>
@@ -377,12 +475,14 @@
               <span class="field-value" id="out-time">--</span>
             </div>
           </div>
+
           <div class="tag-row">
             <div class="tag-col">
               <span class="field-label">Growing Area / Status</span>
               <span class="field-value" id="out-area">--</span>
             </div>
           </div>
+
           <div class="tag-row">
             <div class="tag-col">
               <span class="field-label">Species & Size</span>
@@ -393,13 +493,13 @@
               <span class="field-value" id="out-quantity">--</span>
             </div>
           </div>
+
+          <div class="icon-container" id="icon-box">
+            <img src="oyster-icon.jpg" alt="Logo" onerror="this.style.display='none'">
+          </div>
         </div>
 
-        <div class="tag-icon-container">
-          <img src="oyster-icon.jpg" alt="Oyster Icon" class="tag-icon" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2236%22 height=%2236%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22currentColor%22 stroke-width=%222%22><path d=%22M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z%22/></svg>'">
-        </div>
-
-        <div class="tag-footer">
+        <div class="tag-footer" style="text-align: center;">
           THIS TAG IS REQUIRED TO BE ATTACHED UNTIL CONTAINER IS EMPTY OR RETAGGED AND THEREAFTER KEPT ON FILE FOR 90 DAYS.
         </div>
       </div>
@@ -408,245 +508,213 @@
 
   <script>
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
-    let bluetoothDevice = null;
-    let bluetoothCharacteristic = null;
-
-    function showStatus(message, type = 'info') {
-      const statusEl = document.getElementById('status-message');
-      statusEl.textContent = message;
-      statusEl.className = type;
-      statusEl.style.display = 'block';
-      if (type === 'success') {
-        setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
-      }
-    }
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Check for Bluetooth support
-      if (!navigator.bluetooth) {
-        showStatus('⚠️ Web Bluetooth not supported on this browser. Use Android Chrome or a desktop with Bluetooth adapter.', 'error');
-        document.getElementById('bt-btn').disabled = true;
-      }
-
       fields.forEach(id => {
-        const saved = localStorage.getItem('tag_' + id);
-        if (saved !== null) {
-          document.getElementById(id).value = saved;
+        const val = localStorage.getItem('ma_tag_' + id);
+        if (val && id !== 'harvestDate' && id !== 'harvestTime') {
+          document.getElementById(id).value = val;
         }
       });
 
       const now = new Date();
-      if (!document.getElementById('harvestDate').value) {
-        document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
-      }
-      if (!document.getElementById('harvestTime').value) {
-        document.getElementById('harvestTime').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-      }
+      document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
+      
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('harvestTime').value = `${hours}:${minutes}`;
 
       updateTag();
     });
 
     fields.forEach(id => {
       const el = document.getElementById(id);
-      el.addEventListener('input', () => {
-        localStorage.setItem('tag_' + id, el.value);
-        updateTag();
-      });
-      el.addEventListener('change', () => {
-        localStorage.setItem('tag_' + id, el.value);
-        updateTag();
+      ['change', 'input'].forEach(evt => {
+        el.addEventListener(evt, () => {
+          updateTag();
+          if (id !== 'harvestDate' && id !== 'harvestTime') {
+            localStorage.setItem('ma_tag_' + id, el.value);
+          }
+        });
       });
     });
 
-    function updateTag() {
-      const tagEl = document.getElementById('tag');
-      const size = document.getElementById('tagSize').value;
-      tagEl.className = `tag size-${size}`;
-
-      document.getElementById('out-biz-name').textContent = (document.getElementById('bizName').value || '').toUpperCase();
-      document.getElementById('out-cert').textContent = (document.getElementById('certNum').value || '--').toUpperCase();
-      document.getElementById('out-grant').textContent = (document.getElementById('grantNum').value || '--').toUpperCase();
-      
-      const d = document.getElementById('harvestDate').value;
-      const [y, m, day] = d ? d.split('-') : ['--', '--', '--'];
-      document.getElementById('out-date').textContent = d ? `${m}/${day}/${y}` : '--';
-
-      let t = document.getElementById('harvestTime').value;
-      if (t) {
-        let [hh, mm] = t.split(':');
-        hh = parseInt(hh, 10);
-        t = `${hh % 12 || 12}:${mm} ${hh >= 12 ? 'PM' : 'AM'}`;
-      }
-      document.getElementById('out-time').textContent = t || '--';
-
-      const area = (document.getElementById('growingArea').value || '--').toUpperCase();
-      const status = (document.getElementById('sanitaryStatus').value || '').toUpperCase();
-      document.getElementById('out-area').textContent = `${area} (${status})`;
-
-      document.getElementById('out-species').textContent = `${(document.getElementById('species').value || '').toUpperCase()} - ${(document.getElementById('sizeGrade').value || '').toUpperCase()}`;
-      document.getElementById('out-quantity').textContent = (document.getElementById('quantity').value || '').toUpperCase();
+    function formatDate(rawDate) {
+      if (!rawDate) return '--';
+      const [year, month, day] = rawDate.split('-');
+      return `${month}/${day}/${year}`;
     }
 
-    async function printViaWebBluetooth() {
-      try {
-        showStatus('📋 Rendering tag...', 'info');
+    function formatTime(rawTime) {
+      if (!rawTime) return '--';
+      let [hours, minutes] = rawTime.split(':');
+      hours = parseInt(hours, 10);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      return `${hours}:${minutes} ${ampm}`;
+    }
 
-        const copies = prompt('Enter number of copies:', '1');
-        if (!copies || isNaN(copies)) return;
+    function updateTag() {
+      const tagElement = document.getElementById('tag');
+      const sizeValue = document.getElementById('tagSize').value;
+      const dynamicStyle = document.getElementById('dynamic-print-style');
 
-        const tagElement = document.getElementById('tag');
-        
-        if (typeof html2canvas === 'undefined') {
-          showStatus('⏳ Loading canvas library...', 'info');
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
+      tagElement.classList.remove('size-4x6', 'size-3x7', 'size-3x5');
 
-        showStatus('🎨 Converting tag to image...', 'info');
-        const canvas = await html2canvas(tagElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        });
-
-        const ctx = canvas.getContext('2d');
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        const width = canvas.width;
-        const height = canvas.height;
-        const bytesPerRow = Math.ceil(width / 8);
-        
-        const buffer = new Uint8Array(bytesPerRow * height);
-        buffer.fill(0xFF);
-
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const offset = (y * width + x) * 4;
-            const r = imgData.data[offset];
-            const g = imgData.data[offset + 1];
-            const b = imgData.data[offset + 2];
-            
-            const luminance = (r * 0.299 + g * 0.587 + b * 0.114);
-            
-            if (luminance < 130) {
-              const byteIndex = y * bytesPerRow + Math.floor(x / 8);
-              const bitPosition = 7 - (x % 8);
-              buffer[byteIndex] &= ~(1 << bitPosition);
-            }
-          }
-        }
-
-        const sizeVal = document.getElementById('tagSize').value;
-        let widthMm = 76;
-        let heightMm = 127;
-
-        if (sizeVal === '3x7') {
-          widthMm = 76;
-          heightMm = 177;
-        } else if (sizeVal === '2-516x7') {
-          widthMm = 58; 
-          heightMm = 177;
-        } else if (sizeVal === '4x6') {
-          widthMm = 102; 
-          heightMm = 152; 
-        }
-
-        let tsplHeader = '';
-        tsplHeader += `SIZE ${widthMm} mm,${heightMm} mm\r\n`;
-        tsplHeader += `GAP 3 mm,0 mm\r\n`;
-        tsplHeader += `SPEED 3\r\n`;
-        tsplHeader += `DENSITY 10\r\n`;
-        tsplHeader += `DIRECTION 1\r\n`;
-        tsplHeader += `CLS\r\n`;
-        tsplHeader += `BITMAP 0,0,${bytesPerRow},${height},0,`;
-
-        const headerBytes = new TextEncoder().encode(tsplHeader);
-        const footerBytes = new TextEncoder().encode(`\r\nPRINT ${copies},1\r\n`);
-
-        const totalLength = headerBytes.length + buffer.length + footerBytes.length;
-        const payload = new Uint8Array(totalLength);
-        payload.set(headerBytes, 0);
-        payload.set(buffer, headerBytes.length);
-        payload.set(footerBytes, headerBytes.length + buffer.length);
-
-        if (!navigator.bluetooth) {
-          showStatus('❌ Web Bluetooth is not available on this device.', 'error');
-          return;
-        }
-
-        showStatus('🔍 Searching for Bluetooth devices...', 'info');
-
-        // Request a new device (accept all devices)
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true
-        });
-
-        bluetoothDevice = device;
-        showStatus(`📡 Connecting to ${device.name || 'device'}...`, 'info');
-
-        // Connect to GATT server
-        const server = await device.gatt.connect();
-        let targetCharacteristic = null;
-        
-        showStatus('🔎 Scanning for writable characteristic...', 'info');
-        const services = await server.getPrimaryServices();
-        for (const service of services) {
-          try {
-            const characteristics = await service.getCharacteristics();
-            for (const char of characteristics) {
-              if (char.properties.write || char.properties.writeWithoutResponse) {
-                targetCharacteristic = char;
-                break;
-              }
-            }
-            if (targetCharacteristic) break;
-          } catch (e) {
-            // Skip restricted services
-          }
-        }
-
-        if (!targetCharacteristic) {
-          showStatus('❌ Could not find a writable characteristic on this device.', 'error');
-          server.disconnect();
-          bluetoothDevice = null;
-          return;
-        }
-
-        bluetoothCharacteristic = targetCharacteristic;
-
-        showStatus(`📤 Sending ${payload.length} bytes to printer...`, 'info');
-
-        // Send payload in chunks
-        const chunkSize = 512;
-        for (let i = 0; i < payload.length; i += chunkSize) {
-          const chunk = payload.subarray(i, i + chunkSize);
-          try {
-            if (targetCharacteristic.properties.writeWithoutResponse) {
-              await targetCharacteristic.writeValueWithoutResponse(chunk);
-            } else {
-              await targetCharacteristic.writeValue(chunk);
-            }
-          } catch (err) {
-            console.error('Write error:', err);
-          }
-          // Small delay between chunks
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        showStatus('✅ Print job sent successfully!', 'success');
-        server.disconnect();
-          
-      } catch (err) {
-        console.error('Bluetooth Error:', err);
-        showStatus(`❌ Error: ${err.message}`, 'error');
-        bluetoothDevice = null;
-        bluetoothCharacteristic = null;
+      if (sizeValue === '3x5') {
+        tagElement.classList.add('size-3x5');
+        dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
+      } else if (sizeValue === '3x7') {
+        tagElement.classList.add('size-3x7');
+        dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
+      } else {
+        tagElement.classList.add('size-4x6');
+        dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
       }
+
+      document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
+      document.getElementById('out-cert').textContent = document.getElementById('certNum').value || '--';
+      document.getElementById('out-grant').textContent = document.getElementById('grantNum').value || '--';
+      
+      const rawDate = document.getElementById('harvestDate').value;
+      const rawTime = document.getElementById('harvestTime').value;
+      
+      document.getElementById('out-date').textContent = formatDate(rawDate);
+      document.getElementById('out-time').textContent = formatTime(rawTime);
+      
+      const area = document.getElementById('growingArea').value || '--';
+      const status = document.getElementById('sanitaryStatus').value || 'Approved';
+      document.getElementById('out-area').textContent = `${area} (${status})`;
+
+      const species = document.getElementById('species').value || '--';
+      const sizeGrade = document.getElementById('sizeGrade').value || '--';
+      document.getElementById('out-species').textContent = `${species} - ${sizeGrade}`;
+
+      document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
+    }
+
+    // Web Serial API Bluetooth Classic Printing Handler
+    async function printViaWebSerial() {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
+        return;
+      }
+
+      const copiesInput = prompt('Enter number of tag copies to print:', '1');
+      if (!copiesInput) return;
+      const numCopies = parseInt(copiesInput, 10);
+      if (isNaN(numCopies) || numCopies <= 0) {
+        alert('Please enter a valid number of copies.');
+        return;
+      }
+
+      const sizeValue = document.getElementById('tagSize').value;
+      
+      let widthMm = 101.6, heightMm = 152.4; // 4x6 inches default
+      if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
+      else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
+
+      const bizName = document.getElementById('out-biz-name').textContent;
+      const cert = document.getElementById('out-cert').textContent;
+      const grant = document.getElementById('out-grant').textContent;
+      const dateStr = document.getElementById('out-date').textContent;
+      const timeStr = document.getElementById('out-time').textContent;
+      const areaStr = document.getElementById('out-area').textContent;
+      const speciesStr = document.getElementById('out-species').textContent;
+      const qtyStr = document.getElementById('out-quantity').textContent;
+
+      let tsplCmds = [];
+      
+      tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
+      tsplCmds.push(`GAP 2 mm, 0 mm`);
+      tsplCmds.push(`DIRECTION 1`);
+      tsplCmds.push(`CLS`);
+
+      tsplCmds.push(`BOX 20, 20, ${Math.round(widthMm * 8) - 20}, ${Math.round(heightMm * 8) - 20}, 4`);
+
+      tsplCmds.push(`TEXT 40, 40, "3", 0, 1, 1, "${bizName}"`);
+      tsplCmds.push(`TEXT 40, 90, "2", 0, 1, 1, "HARVESTER SHELLSTOCK TAG"`);
+      tsplCmds.push(`BAR 20, 130, ${Math.round(widthMm * 8) - 40}, 3`);
+
+      tsplCmds.push(`TEXT 35, 150, "1", 0, 1, 1, "HARVESTER CERT / PERMIT #"`);
+      tsplCmds.push(`TEXT 35, 175, "2", 0, 1, 1, "${cert}"`);
+      
+      const midX = Math.round((widthMm * 8) / 2);
+      tsplCmds.push(`BAR ${midX}, 140, 3, 90`);
+      tsplCmds.push(`TEXT ${midX + 15}, 150, "1", 0, 1, 1, "GRANT #"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 175, "2", 0, 1, 1, "${grant}"`);
+      tsplCmds.push(`BAR 20, 230, ${Math.round(widthMm * 8) - 40}, 2`);
+
+      tsplCmds.push(`TEXT 35, 245, "1", 0, 1, 1, "HARVEST DATE"`);
+      tsplCmds.push(`TEXT 35, 270, "2", 0, 1, 1, "${dateStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 245, "1", 0, 1, 1, "HARVEST TIME"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 270, "2", 0, 1, 1, "${timeStr}"`);
+      tsplCmds.push(`BAR 20, 325, ${Math.round(widthMm * 8) - 40}, 2`);
+
+      tsplCmds.push(`TEXT 35, 340, "1", 0, 1, 1, "GROWING AREA / STATUS"`);
+      tsplCmds.push(`TEXT 35, 365, "2", 0, 1, 1, "${areaStr}"`);
+      tsplCmds.push(`BAR 20, 420, ${Math.round(widthMm * 8) - 40}, 2`);
+
+      tsplCmds.push(`TEXT 35, 435, "1", 0, 1, 1, "SPECIES & SIZE"`);
+      tsplCmds.push(`TEXT 35, 460, "2", 0, 1, 1, "${speciesStr}"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 435, "1", 0, 1, 1, "QUANTITY"`);
+      tsplCmds.push(`TEXT ${midX + 15}, 460, "2", 0, 1, 1, "${qtyStr}"`);
+      tsplCmds.push(`BAR 20, 515, ${Math.round(widthMm * 8) - 40}, 3`);
+
+      tsplCmds.push(`TEXT 35, 540, "1", 0, 1, 1, "THIS TAG IS REQUIRED TO BE ATTACHED"`);
+      tsplCmds.push(`TEXT 35, 560, "1", 0, 1, 1, "UNTIL CONTAINER IS EMPTY OR RETAGGED"`);
+      tsplCmds.push(`TEXT 35, 580, "1", 0, 1, 1, "AND THEREAFTER KEPT ON FILE FOR 90 DAYS."`);
+
+      tsplCmds.push(`PRINT 1, ${numCopies}`);
+
+      const tsplString = tsplCmds.join('\r\n') + '\r\n';
+
+      try {
+        // Prompt user to pick their paired Bluetooth Serial port
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const encoder = new TextEncoder();
+        const writer = port.writable.getWriter();
+        await writer.write(encoder.encode(tsplString));
+        await writer.releaseLock();
+        await port.close();
+
+        alert(`Successfully sent ${numCopies} copy(ies) via Bluetooth Serial!`);
+      } catch (error) {
+        console.error(error);
+        if (error.name !== 'NotFoundError') {
+          alert('Serial print error: ' + error.message);
+        }
+      }
+    }
+
+    // Local USB / System Printer Handler
+    function printViaUSB() {
+      const copiesInput = prompt('Enter number of tag copies to print:', '1');
+      if (!copiesInput) return;
+      const numCopies = parseInt(copiesInput, 10);
+      if (isNaN(numCopies) || numCopies <= 0) {
+        alert('Please enter a valid number of copies.');
+        return;
+      }
+
+      const previewContainer = document.getElementById('previewContainer');
+      const originalTag = document.getElementById('tag');
+      
+      const clones = [];
+      for (let i = 1; i < numCopies; i++) {
+        const clone = originalTag.cloneNode(true);
+        clone.removeAttribute('id');
+        previewContainer.appendChild(clone);
+        clones.push(clone);
+      }
+
+      window.print();
+
+      setTimeout(() => {
+        clones.forEach(clone => clone.remove());
+      }, 500);
     }
   </script>
 </body>
