@@ -638,7 +638,6 @@
         tsplCmds.push(`SPEED 2`);         // Stabilizes motor traction on heavy tag stock
         tsplCmds.push(`DENSITY 10`);      // Ensures crisp burn darkness
         tsplCmds.push(`DIRECTION 1`);
-        tsplCmds.push(`GAPDETECT`);      // Forces real-time optical hole calibration per job
         tsplCmds.push(`CLS`);
 
         const offsetX = Math.max(0, Math.round((fullWidthDots - imgWidth) / 2));
