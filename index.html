@@ -647,7 +647,7 @@
 
         let tsplCmds = [];
         tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
-        tsplCmds.push(`GAP 2 mm, 0 mm`);
+        tsplCmds.push(`GAP 3 mm, 0 mm`); // Set for hole-sensing media (adjust if hole length differs)
         tsplCmds.push(`DIRECTION 1`);
         tsplCmds.push(`CLS`);
 
@@ -662,12 +662,7 @@
         
         // 19mm feed advance = approx 152 dots at 203 DPI (19mm * 8 dots/mm = 152 dots)
         const feedDots = Math.round(19 * 8);
-        let tsplFooter = '';
-        if (numCopies > 1) {
-          tsplFooter = `\r\nPRINT 1, ${numCopies - 1}\r\nPRINT 1\r\nFEED ${feedDots}\r\n`;
-        } else {
-          tsplFooter = `\r\nPRINT 1\r\nFEED ${feedDots}\r\n`;
-        }
+        const tsplFooter = `\r\nPRINT ${numCopies}\r\nFEED ${feedDots}\r\n`;
 
         const encoder = new TextEncoder();
 
