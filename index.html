@@ -643,7 +643,7 @@
         tsplCmds.push(`CLS`);
 
         const offsetX = Math.max(0, Math.round((fullWidthDots - imgWidth) / 2));
-        const offsetY = Math.max(0, Math.round((fullHeightDots - imgHeight) / 2));
+        const offsetY = Math.max(0, Math.round((fullHeightDots - imgHeight) / 2)) + 80;
 
         const tsplHeader = tsplCmds.join('\r\n') + '\r\n';
         const bitmapCommand = `BITMAP ${offsetX}, ${offsetY}, ${bytesPerRow}, ${imgHeight}, 0,`;
