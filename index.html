@@ -17,8 +17,11 @@
   <!-- Favicon for Standard Web Browsers -->
   <link rel="icon" type="image/png" href="oyster-icon.png">
 
+  <!-- html2canvas library for exact pixel rasterization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
   <style id="dynamic-print-style">
-    @page { size: 3in 5in; margin: 0; }
+    @page { size: 4in 6in; margin: 0; }
   </style>
   <style>
     * {
@@ -152,17 +155,11 @@
       gap: 8px;
     }
 
-    .print-btn { background-color: #1d3557; }
-    .print-btn:active { background-color: #457b9d; }
-
     .bt-btn { background-color: #2a9d8f; }
     .bt-btn:active { background-color: #21867a; }
 
     .usb-btn { background-color: #457b9d; }
     .usb-btn:active { background-color: #1d3557; }
-
-    .test-btn { background-color: #e76f51; }
-    .test-btn:active { background-color: #c9573b; }
 
     /* Tag Layout */
     .tag {
@@ -177,21 +174,9 @@
       transform-origin: top center;
     }
 
-    .tag.size-3x7 {
-      width: 3in;
-      height: 7in;
-      min-width: 3in;
-      min-height: 7in;
-      padding: 0.15in;
-    }
-
-    .tag.size-3x5 {
-      width: 3in;
-      height: 5in;
-      min-width: 3in;
-      min-height: 5in;
-      padding: 0.12in;
-    }
+    .tag.size-4x6 { width: 4in; height: 6in; min-width: 4in; min-height: 6in; }
+    .tag.size-3x7 { width: 3in; height: 7in; min-width: 3in; min-height: 7in; padding: 0.15in; }
+    .tag.size-3x5 { width: 3in; height: 5in; min-width: 3in; min-height: 5in; padding: 0.12in; }
 
     .tag-header {
       text-align: center;
@@ -291,27 +276,10 @@
     }
 
     @media print {
-      body {
-        background: white;
-        padding: 0;
-        margin: 0;
-      }
-      .no-print {
-        display: none !important;
-      }
-      .preview-section {
-        display: block;
-        padding: 0;
-        overflow: visible;
-      }
-      .tag {
-        box-shadow: none;
-        border: 3px solid #000;
-        page-break-after: always;
-        margin: 0;
-      }
-      .tag.size-3x7 { width: 3in; height: 7in; }
-      .tag.size-3x5 { width: 3in; height: 5in; }
+      body { background: white; padding: 0; margin: 0; }
+      .no-print { display: none !important; }
+      .preview-section { display: block; padding: 0; overflow: visible; }
+      .tag { box-shadow: none; border: 3px solid #000; page-break-after: always; margin: 0; }
     }
   </style>
 </head>
@@ -324,8 +292,9 @@
         <div class="form-group full">
           <label for="tagSize">Tag Size</label>
           <select id="tagSize">
-            <option value="3x5">3" x 5" (Alpha-3R)</option>
-            <option value="3x7">3" x 7" (Alpha-3R)</option>
+            <option value="4x6">4" x 6" (Standard Thermal)</option>
+            <option value="3x7">3" x 7" (Narrow Thermal)</option>
+            <option value="3x5">3" x 5" (Compact Thermal)</option>
           </select>
         </div>
 
@@ -391,26 +360,17 @@
           <label for="growingArea">MA Growing Area</label>
           <input type="text" id="growingArea" placeholder="Type area code or town name..." list="areaList">
           <datalist id="areaList">
-            <!-- Buzzards Bay -->
             <option value="BB1 - Westport South Coastal">
             <option value="BB2 - Richmond Pond">
-            <option value="BB3 - West Branch Westport River">
-            <option value="BB4 - East Branch Westport River">
-            <option value="BB7 - Dartmouth Center Coastal">
-            <option value="BB12 - Apponagansett Bay">
-            <option value="BB15 - New Bedford/Fairhaven Harbor">
-            <!-- Cape Cod Bay -->
             <option value="CCB3 - Provincetown Outer Harbor">
             <option value="CCB11 - Wellfleet Harbor">
             <option value="CCB17 - Orleans North Coastal">
             <option value="CCB31 - Barnstable Harbor">
-            <!-- South Cape Cod -->
             <option value="SC15 - Waquoit Bay">
             <option value="SC21 - Cotuit Bay">
             <option value="SC28 - Lewis Bay">
             <option value="SC33 - Bass River South">
             <option value="SC53 - Pleasant Bay">
-            <!-- Martha's Vineyard / Nantucket -->
             <option value="V2 - Menemsha Inlet and Pond">
             <option value="V11 - Lagoon Pond">
             <option value="V20 - Katama Bay">
@@ -429,7 +389,7 @@
         <div class="btn-row">
           <button class="action-btn bt-btn" onclick="printViaWebSerial()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 17L18 7l-5-5v20l5-5-12-10"/></svg>
-            <span id="bt-btn-text">Bluetooth Print Tag</span>
+            <span id="bt-btn-text">BT Serial Print</span>
           </button>
           <button class="action-btn usb-btn" onclick="printViaUSB()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
@@ -441,7 +401,7 @@
 
     <!-- Live Preview Tag Container -->
     <div class="preview-section" id="previewContainer">
-      <div class="tag size-3x5" id="tag">
+      <div class="tag size-4x6" id="tag">
         <div class="tag-header">
           <h1 id="out-biz-name">BAYSTATE SHELLFISH CO.</h1>
           <p>HARVESTER SHELLSTOCK TAG</p>
@@ -489,7 +449,7 @@
           </div>
 
           <div class="icon-container" id="icon-box">
-            <img src="oyster-icon.jpg" alt="Logo" onerror="this.style.display='none'">
+            <img src="oyster-icon.jpg" alt="Logo" crossorigin="anonymous" onerror="this.style.display='none'">
           </div>
         </div>
 
@@ -504,44 +464,58 @@
     const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Load saved values from storage
       fields.forEach(id => {
         const val = localStorage.getItem('ma_tag_' + id);
         if (val && id !== 'harvestDate' && id !== 'harvestTime') {
-          document.getElementById(id).value = val;
+          const el = document.getElementById(id);
+          if (el) el.value = val;
         }
       });
 
-      const now = new Date();
-      document.getElementById('harvestDate').value = now.toISOString().split('T')[0];
+      // Set default date and time if empty
+      const dateEl = document.getElementById('harvestDate');
+      const timeEl = document.getElementById('harvestTime');
       
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      document.getElementById('harvestTime').value = `${hours}:${minutes}`;
+      if (dateEl && !dateEl.value) {
+        dateEl.value = new Date().toISOString().split('T')[0];
+      }
+      if (timeEl && !timeEl.value) {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        timeEl.value = `${hours}:${minutes}`;
+      }
+
+      // Attach event listeners safely after DOM is fully available
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          ['change', 'input'].forEach(evt => {
+            el.addEventListener(evt, () => {
+              updateTag();
+              if (id !== 'harvestDate' && id !== 'harvestTime') {
+                localStorage.setItem('ma_tag_' + id, el.value);
+              }
+            });
+          });
+        }
+      });
 
       updateTag();
     });
 
-    fields.forEach(id => {
-      const el = document.getElementById(id);
-      ['change', 'input'].forEach(evt => {
-        el.addEventListener(evt, () => {
-          updateTag();
-          if (id !== 'harvestDate' && id !== 'harvestTime') {
-            localStorage.setItem('ma_tag_' + id, el.value);
-          }
-        });
-      });
-    });
-
     function formatDate(rawDate) {
       if (!rawDate) return '--';
-      const [year, month, day] = rawDate.split('-');
-      return `${month}/${day}/${year}`;
+      const parts = rawDate.split('-');
+      if (parts.length !== 3) return rawDate;
+      return `${parts[1]}/${parts[2]}/${parts[0]}`;
     }
 
     function formatTime(rawTime) {
       if (!rawTime) return '--';
       let [hours, minutes] = rawTime.split(':');
+      if (!hours || !minutes) return rawTime;
       hours = parseInt(hours, 10);
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12 || 12;
@@ -550,48 +524,48 @@
 
     function updateTag() {
       const tagElement = document.getElementById('tag');
-      const sizeValue = document.getElementById('tagSize').value;
+      const sizeValue = document.getElementById('tagSize')?.value || '4x6';
       const dynamicStyle = document.getElementById('dynamic-print-style');
 
-      tagElement.classList.remove('size-3x7', 'size-3x5');
+      if (!tagElement) return;
+
+      tagElement.classList.remove('size-4x6', 'size-3x7', 'size-3x5');
 
       if (sizeValue === '3x5') {
         tagElement.classList.add('size-3x5');
-        dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
+        if (dynamicStyle) dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
       } else if (sizeValue === '3x7') {
         tagElement.classList.add('size-3x7');
-        dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
+        if (dynamicStyle) dynamicStyle.textContent = '@page { size: 3in 7in; margin: 0; }';
       } else {
-        tagElement.classList.add('size-3x5');
-        dynamicStyle.textContent = '@page { size: 3in 5in; margin: 0; }';
+        tagElement.classList.add('size-4x6');
+        if (dynamicStyle) dynamicStyle.textContent = '@page { size: 4in 6in; margin: 0; }';
       }
 
-      document.getElementById('out-biz-name').textContent = document.getElementById('bizName').value || 'BAYSTATE SHELLFISH CO.';
-      document.getElementById('out-cert').textContent = document.getElementById('certNum').value || '--';
-      document.getElementById('out-grant').textContent = document.getElementById('grantNum').value || '--';
+      const getValue = (id) => document.getElementById(id)?.value || '';
+
+      document.getElementById('out-biz-name').textContent = getValue('bizName') || 'BAYSTATE SHELLFISH CO.';
+      document.getElementById('out-cert').textContent = getValue('certNum') || '--';
+      document.getElementById('out-grant').textContent = getValue('grantNum') || '--';
       
-      const rawDate = document.getElementById('harvestDate').value;
-      const rawTime = document.getElementById('harvestTime').value;
+      document.getElementById('out-date').textContent = formatDate(getValue('harvestDate'));
+      document.getElementById('out-time').textContent = formatTime(getValue('harvestTime'));
       
-      document.getElementById('out-date').textContent = formatDate(rawDate);
-      document.getElementById('out-time').textContent = formatTime(rawTime);
-      
-      const area = document.getElementById('growingArea').value || '--';
-      const status = document.getElementById('sanitaryStatus').value || 'Approved';
+      const area = getValue('growingArea') || '--';
+      const status = getValue('sanitaryStatus') || 'Approved';
       document.getElementById('out-area').textContent = `${area} (${status})`;
 
-      const species = document.getElementById('species').value || '--';
-      const sizeGrade = document.getElementById('sizeGrade').value || '--';
+      const species = getValue('species') || '--';
+      const sizeGrade = getValue('sizeGrade') || '--';
       document.getElementById('out-species').textContent = `${species} - ${sizeGrade}`;
 
-      document.getElementById('out-quantity').textContent = document.getElementById('quantity').value || '--';
+      document.getElementById('out-quantity').textContent = getValue('quantity') || '--';
     }
 
-    // Bluetooth printing: render the visible tag, then send it as a TSPL bitmap.
-    // This keeps Bluetooth output visually aligned with the on-screen preview.
+    // Rasterize HTML Tag to TSPL Bitmap Command over Bluetooth Serial
     async function printViaWebSerial() {
       if (!('serial' in navigator)) {
-        alert('Bluetooth printing requires a current version of Chrome on Android.');
+        alert('Web Serial API is not supported on this browser. Please use Chrome on Android or Desktop.');
         return;
       }
 
@@ -603,232 +577,76 @@
         return;
       }
 
-      return printTsplTag(numCopies);
-
       const sizeValue = document.getElementById('tagSize').value;
-      const widthDots = 576; // Alpha-3R: 72 mm × 8 dots per mm
-      const tagHeightMm = sizeValue === '3x7' ? 177.8 : 127.0;
-      const tagHeightDots = Math.round(tagHeightMm * 8);
-      const buttonText = document.getElementById('bt-btn-text');
-      buttonText.textContent = 'Rendering preview…';
+      
+      let widthMm = 101.6, heightMm = 152.4; // 4x6 default
+      if (sizeValue === '3x7') { widthMm = 76.2; heightMm = 177.8; }
+      else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
+
+      const tagElement = document.getElementById('tag');
 
       try {
-        const preview = document.getElementById('tag');
-        const renderedPreview = await html2canvas(preview, {
-          backgroundColor: '#ffffff',
-          scale: 2,
-          logging: false,
-          useCORS: true
+        const targetWidthDots = Math.round(widthMm * 8);
+        const canvas = await html2canvas(tagElement, {
+          scale: targetWidthDots / tagElement.offsetWidth,
+          useCORS: true,
+          backgroundColor: '#ffffff'
         });
 
-        // Preserve the preview's proportions. The remaining space is the Alpha-3R's
-        // unavoidable 2.83-inch print-width margin on a 3-inch-wide tag.
-        const imageHeightDots = Math.min(
-          tagHeightDots,
-          Math.round(renderedPreview.height * (widthDots / renderedPreview.width))
-        );
-        const bitmapCanvas = document.createElement('canvas');
-        bitmapCanvas.width = widthDots;
-        bitmapCanvas.height = imageHeightDots;
-        const context = bitmapCanvas.getContext('2d', { willReadFrequently: true });
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, widthDots, imageHeightDots);
-        context.drawImage(renderedPreview, 0, 0, widthDots, imageHeightDots);
+        const ctx = canvas.getContext('2d');
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
 
-        const pixels = context.getImageData(0, 0, widthDots, imageHeightDots).data;
-        const bytesPerRow = widthDots / 8;
-        const bitmap = new Uint8Array(bytesPerRow * imageHeightDots);
-        for (let y = 0; y < imageHeightDots; y++) {
-          for (let x = 0; x < widthDots; x++) {
-            const offset = (y * widthDots + x) * 4;
-            const luminance = pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114;
-            if (luminance < 180) {
-              bitmap[y * bytesPerRow + Math.floor(x / 8)] |= 0x80 >> (x % 8);
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const bytesPerRow = Math.ceil(imgWidth / 8);
+        const bitmapBytes = new Uint8Array(bytesPerRow * imgHeight);
+
+        for (let y = 0; y < imgHeight; y++) {
+          for (let x = 0; x < imgWidth; x++) {
+            const idx = (y * imgWidth + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const avg = (r + g + b) / 3;
+
+            if (avg < 128) {
+              const byteIndex = y * bytesPerRow + Math.floor(x / 8);
+              const bitPosition = 7 - (x % 8);
+              bitmapBytes[byteIndex] |= (1 << bitPosition);
             }
           }
         }
 
+        let tsplCmds = [];
+        tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
+        tsplCmds.push(`GAP 2 mm, 0 mm`);
+        tsplCmds.push(`DIRECTION 1`);
+        tsplCmds.push(`CLS`);
+
+        const tsplHeader = tsplCmds.join('\r\n') + '\r\n';
+        const bitmapCommand = `BITMAP 0, 0, ${bytesPerRow}, ${imgHeight}, 0,`;
+        const tsplFooter = `\r\nPRINT 1, ${numCopies}\r\n`;
+
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        const writer = port.writable.getWriter();
         const encoder = new TextEncoder();
-        const header = encoder.encode(
-          `SIZE 72 mm, ${tagHeightMm} mm\r\n` +
-          `GAP 0,0\r\n` +
-          `REFERENCE 0, 0\r\n` +
-          `DIRECTION 1\r\nCLS\r\n` +
-          `BITMAP 0,0,${bytesPerRow},${imageHeightDots},0,`
-        );
-        const footer = encoder.encode(`\r\nPRINT 1,${numCopies}\r\n`);
 
-        // Prompt the user to choose the paired Alpha-3R Bluetooth serial port.
-        const port = await navigator.serial.requestPort();
-        // Alpha-3R's documented default serial setting is 9600 bps.
-        await port.open({ baudRate: 9600 });
-        const writer = port.writable.getWriter();
-        try {
-          await writer.write(header);
-          // Mobile-printer Bluetooth buffers are small. Sending a tag image as one
-          // large write can make the printer acknowledge the connection but discard
-          // the unfinished bitmap. Pace the image in small, ordered pieces instead.
-          const chunkSize = 512;
-          for (let offset = 0; offset < bitmap.length; offset += chunkSize) {
-            const chunk = bitmap.subarray(offset, Math.min(offset + chunkSize, bitmap.length));
-            await writer.write(chunk);
-            buttonText.textContent = `Sending preview… ${Math.round(((offset + chunk.length) / bitmap.length) * 100)}%`;
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
-          await writer.write(footer);
-          await new Promise(resolve => setTimeout(resolve, 250));
-        } finally {
-          writer.releaseLock();
-          await port.close();
-        }
+        await writer.write(encoder.encode(tsplHeader));
+        await writer.write(encoder.encode(bitmapCommand));
+        await writer.write(bitmapBytes);
+        await writer.write(encoder.encode(tsplFooter));
 
-        alert(`Sent ${numCopies} preview tag(s) to the Alpha-3R.`);
+        await writer.releaseLock();
+        await port.close();
+
+        alert(`Successfully sent ${numCopies} exact-match tag copy(ies) via Bluetooth Serial!`);
       } catch (error) {
         console.error(error);
         if (error.name !== 'NotFoundError') {
-          alert('Bluetooth print error: ' + error.message);
-        }
-      } finally {
-        buttonText.textContent = 'Bluetooth Print Preview';
-      }
-    }
-
-    // Compact, reliable layout for Alpha-3R Bluetooth printing. Raw bitmap jobs
-    // are not accepted by this printer's Bluetooth firmware.
-    async function printTsplTag(numCopies) {
-      const sizeValue = document.getElementById('tagSize').value;
-      const tagHeightMm = sizeValue === '3x7' ? 177.8 : 127.0;
-      const tagHeightDots = Math.round(tagHeightMm * 8);
-      const footerY = tagHeightDots - 75;
-      const buttonText = document.getElementById('bt-btn-text');
-      const safeText = (value) => String(value).replace(/["\r\n]/g, ' ');
-      const value = (id) => safeText(document.getElementById(id).textContent);
-      const command =
-        `SIZE 72 mm, ${tagHeightMm} mm\r\n` +
-        'GAP 0,0\r\nREFERENCE 0,0\r\nDIRECTION 1\r\nCLS\r\n' +
-        `BOX 10,10,566,${tagHeightDots - 10},3\r\n` +
-        `TEXT 35,30,"3",0,1,1,"${value('out-biz-name')}"\r\n` +
-        'TEXT 85,65,"2",0,1,1,"HARVESTER SHELLSTOCK TAG"\r\n' +
-        'BAR 20,105,536,3\r\n' +
-        'TEXT 30,125,"1",0,1,1,"HARVESTER CERT / PERMIT #"\r\n' +
-        `TEXT 30,150,"2",0,1,1,"${value('out-cert')}"\r\n` +
-        'TEXT 290,125,"1",0,1,1,"GRANT #"\r\n' +
-        `TEXT 290,150,"2",0,1,1,"${value('out-grant')}"\r\n` +
-        'BAR 20,195,536,2\r\n' +
-        'TEXT 30,215,"1",0,1,1,"HARVEST DATE"\r\n' +
-        `TEXT 30,240,"2",0,1,1,"${value('out-date')}"\r\n` +
-        'TEXT 290,215,"1",0,1,1,"HARVEST TIME"\r\n' +
-        `TEXT 290,240,"2",0,1,1,"${value('out-time')}"\r\n` +
-        'BAR 20,285,536,2\r\n' +
-        'TEXT 30,305,"1",0,1,1,"GROWING AREA / STATUS"\r\n' +
-        `TEXT 30,330,"2",0,1,1,"${value('out-area')}"\r\n` +
-        'BAR 20,375,536,2\r\n' +
-        'TEXT 30,395,"1",0,1,1,"SPECIES & SIZE"\r\n' +
-        `TEXT 30,420,"2",0,1,1,"${value('out-species')}"\r\n` +
-        'TEXT 290,395,"1",0,1,1,"QUANTITY"\r\n' +
-        `TEXT 290,420,"2",0,1,1,"${value('out-quantity')}"\r\n` +
-        'BAR 20,470,536,3\r\n' +
-        `TEXT 25,${footerY},"1",0,1,1,"TAG REQUIRED UNTIL CONTAINER IS EMPTY OR RETAGGED"\r\n` +
-        `TEXT 70,${footerY + 20},"1",0,1,1,"KEEP ON FILE FOR 90 DAYS"\r\n` +
-        `PRINT 1,${numCopies}\r\n`;
-
-      buttonText.textContent = 'Sending tag…';
-      try {
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
-        const writer = port.writable.getWriter();
-        try {
-          await writer.write(new TextEncoder().encode(command));
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } finally {
-          writer.releaseLock();
-          await port.close();
-        }
-        alert(`Sent ${numCopies} tag(s) to the Alpha-3R.`);
-      } catch (error) {
-        console.error(error);
-        if (error.name !== 'NotFoundError') {
-          alert('Bluetooth print error: ' + error.message);
-        }
-      } finally {
-        buttonText.textContent = 'Bluetooth Print Tag';
-      }
-    }
-
-    // A short text job to confirm that Android, Bluetooth SPP, and the printer
-    // agree on the command language before sending a full preview image.
-    async function printBluetoothTest() {
-      if (!('serial' in navigator)) {
-        alert('Bluetooth printing requires a current version of Chrome on Android.');
-        return;
-      }
-
-      const testCommand =
-        'SIZE 72 mm, 127 mm\r\n' +
-        'GAP 0,0\r\n' +
-        'DIRECTION 1\r\n' +
-        'CLS\r\n' +
-        'TEXT 30,30,"3",0,1,1,"BLUETOOTH TEST OK"\r\n' +
-        'PRINT 1,1\r\n';
-
-      try {
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
-        const writer = port.writable.getWriter();
-        try {
-          await writer.write(new TextEncoder().encode(testCommand));
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } finally {
-          writer.releaseLock();
-          await port.close();
-        }
-      } catch (error) {
-        console.error(error);
-        if (error.name !== 'NotFoundError') {
-          alert('Bluetooth test error: ' + error.message);
-        }
-      }
-    }
-
-    // Confirms the printer accepts a TSPL bitmap before a full preview is sent.
-    async function printBluetoothImageTest() {
-      if (!('serial' in navigator)) {
-        alert('Bluetooth printing requires a current version of Chrome on Android.');
-        return;
-      }
-
-      const encoder = new TextEncoder();
-      const header = encoder.encode(
-        'SIZE 72 mm, 127 mm\r\n' +
-        'GAP 0,0\r\n' +
-        'DIRECTION 1\r\n' +
-        'CLS\r\n' +
-        'TEXT 30,30,"3",0,1,1,"IMAGE TEST"\r\n' +
-        'BITMAP 30,100,8,32,0,'
-      );
-      const bitmap = new Uint8Array(8 * 32);
-      for (let row = 0; row < 32; row++) {
-        bitmap.fill(row % 2 === 0 ? 0xAA : 0x55, row * 8, (row + 1) * 8);
-      }
-      const footer = encoder.encode('\r\nPRINT 1,1\r\n');
-
-      try {
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
-        const writer = port.writable.getWriter();
-        try {
-          await writer.write(header);
-          await writer.write(bitmap);
-          await writer.write(footer);
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } finally {
-          writer.releaseLock();
-          await port.close();
-        }
-      } catch (error) {
-        console.error(error);
-        if (error.name !== 'NotFoundError') {
-          alert('Bluetooth image test error: ' + error.message);
+          alert('Printing error: ' + error.message);
         }
       }
     }
