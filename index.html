@@ -379,6 +379,11 @@
         </div>
 
         <div class="form-group full">
+          <label for="printScale">Print Scale (%) &mdash; reduce if image runs off the edge of the label</label>
+          <input type="number" id="printScale" min="50" max="100" step="1" value="96">
+        </div>
+
+        <div class="form-group full">
           <label for="sanitaryStatus">Classification</label>
           <select id="sanitaryStatus">
             <option value="Approved">Approved</option>
@@ -461,7 +466,7 @@
   </div>
 
   <script>
-    const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus'];
+    const fields = ['tagSize', 'bizName', 'certNum', 'grantNum', 'harvestDate', 'harvestTime', 'species', 'sizeGrade', 'quantity', 'growingArea', 'sanitaryStatus', 'printScale'];
 
     window.addEventListener('DOMContentLoaded', () => {
       // Load saved values from storage
@@ -584,9 +589,27 @@
       else if (sizeValue === '3x5') { widthMm = 76.2; heightMm = 127.0; }
 
       const tagElement = document.getElementById('tag');
+      let port = null;
+      let writer = null;
+
+      // Read the print scale (defaults to 96% to leave a small margin for
+      // the printer's unprintable edge). Clamped to a sane 50-100% range.
+      const scaleInput = document.getElementById('printScale');
+      let printScalePct = parseFloat(scaleInput?.value);
+      if (isNaN(printScalePct)) printScalePct = 96;
+      printScalePct = Math.min(100, Math.max(50, printScalePct));
+      const printScale = printScalePct / 100;
 
       try {
-        const targetWidthDots = Math.round(widthMm * 8);
+        // Full nominal label size in dots, used for the SIZE command and for
+        // centering the (possibly smaller) rendered image on the label.
+        const fullWidthDots = Math.round(widthMm * 8);
+        const fullHeightDots = Math.round(heightMm * 8);
+
+        // Shrink the actual rendered bitmap by printScale so it fits inside
+        // the printer's real printable area, which is typically a little
+        // smaller than the label's nominal dimensions.
+        const targetWidthDots = Math.round(fullWidthDots * printScale);
         const canvas = await html2canvas(tagElement, {
           scale: targetWidthDots / tagElement.offsetWidth,
           useCORS: true,
@@ -610,7 +633,11 @@
             const b = data[idx + 2];
             const avg = (r + g + b) / 3;
 
-            if (avg < 128) {
+            // This printer's BITMAP implementation treats a set bit as
+            // "leave white" rather than "fire black" (the opposite of the
+            // usual TSPL convention), so the polarity is inverted here:
+            // light pixels set the bit, dark pixels leave it clear.
+            if (avg >= 128) {
               const byteIndex = y * bytesPerRow + Math.floor(x / 8);
               const bitPosition = 7 - (x % 8);
               bitmapBytes[byteIndex] |= (1 << bitPosition);
@@ -624,29 +651,90 @@
         tsplCmds.push(`DIRECTION 1`);
         tsplCmds.push(`CLS`);
 
+        // Center the (now smaller) bitmap within the full nominal label
+        // area so the margin is even on all sides rather than shifted to
+        // one edge.
+        const offsetX = Math.max(0, Math.round((fullWidthDots - imgWidth) / 2));
+        const offsetY = Math.max(0, Math.round((fullHeightDots - imgHeight) / 2));
+
         const tsplHeader = tsplCmds.join('\r\n') + '\r\n';
-        const bitmapCommand = `BITMAP 0, 0, ${bytesPerRow}, ${imgHeight}, 0,`;
-        const tsplFooter = `\r\nPRINT 1, ${numCopies}\r\n`;
+        const bitmapCommand = `BITMAP ${offsetX}, ${offsetY}, ${bytesPerRow}, ${imgHeight}, 0,`;
+        
+        // 19mm feed advance = approx 152 dots at 203 DPI (19mm * 8 dots/mm = 152 dots)
+        const feedDots = Math.round(19 * 8);
+        let tsplFooter = '';
+        if (numCopies > 1) {
+          tsplFooter = `\r\nPRINT 1, ${numCopies - 1}\r\nPRINT 1\r\nFEED ${feedDots}\r\n`;
+        } else {
+          tsplFooter = `\r\nPRINT 1\r\nFEED ${feedDots}\r\n`;
+        }
 
-        const port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 115200 });
-
-        const writer = port.writable.getWriter();
         const encoder = new TextEncoder();
 
-        await writer.write(encoder.encode(tsplHeader));
-        await writer.write(encoder.encode(bitmapCommand));
-        await writer.write(bitmapBytes);
-        await writer.write(encoder.encode(tsplFooter));
+        // Build the entire job as ONE contiguous buffer instead of separate
+        // write() calls for header/command/bitmap/footer. Separate writes can
+        // become separate underlying Bluetooth packets on immature RFCOMM
+        // stacks (current Android Web Serial support is still in beta), and
+        // if the printer's parser sees them out of order or with a gap, it
+        // silently discards the whole job instead of erroring.
+        const headerBytes = encoder.encode(tsplHeader + bitmapCommand);
+        const footerBytes = encoder.encode(tsplFooter);
+        const fullPayload = new Uint8Array(headerBytes.length + bitmapBytes.length + footerBytes.length);
+        fullPayload.set(headerBytes, 0);
+        fullPayload.set(bitmapBytes, headerBytes.length);
+        fullPayload.set(footerBytes, headerBytes.length + bitmapBytes.length);
 
-        await writer.releaseLock();
-        await port.close();
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+
+        writer = port.writable.getWriter();
+
+        // Send in small chunks, but gate each chunk on writer.ready instead
+        // of a guessed setTimeout delay. writer.ready resolves based on the
+        // stream's real backpressure signal, so we only send the next chunk
+        // once the underlying sink has actually accepted the previous one.
+        const CHUNK_SIZE = 128;
+        for (let i = 0; i < fullPayload.length; i += CHUNK_SIZE) {
+          await writer.ready;
+          const chunk = fullPayload.slice(i, i + CHUNK_SIZE);
+          await writer.write(chunk);
+        }
+
+        // Don't tear down the connection right away. The bytes being
+        // flushed from the writer just means the OS accepted them - the
+        // printer still needs real time to physically feed and fire the
+        // head for every requested copy. On this still-maturing Android
+        // Bluetooth-RFCOMM stack, closing the port mid-job can be treated
+        // as an abort, which shows up as the printer feeding blank labels
+        // instead of finishing the print. This is a rough heuristic based
+        // on label length and copy count - increase it if longer labels or
+        // larger quantities still cut off early.
+        const estimatedMsPerLabel = 700 + (heightMm * 4);
+        const totalWaitMs = estimatedMsPerLabel * numCopies;
+        await new Promise(resolve => setTimeout(resolve, totalWaitMs));
 
         alert(`Successfully sent ${numCopies} exact-match tag copy(ies) via Bluetooth Serial!`);
       } catch (error) {
         console.error(error);
         if (error.name !== 'NotFoundError') {
           alert('Printing error: ' + error.message);
+        }
+      } finally {
+        // Always release/close, even if something threw above, so the port
+        // isn't left locked for the next print attempt.
+        try {
+          if (writer) {
+            await writer.releaseLock();
+          }
+        } catch (e) {
+          console.error('Error releasing writer lock:', e);
+        }
+        try {
+          if (port) {
+            await port.close();
+          }
+        } catch (e) {
+          console.error('Error closing port:', e);
         }
       }
     }
