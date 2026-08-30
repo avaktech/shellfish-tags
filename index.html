@@ -635,7 +635,10 @@
         tsplCmds.push(`SIZE ${widthMm} mm, ${heightMm} mm`);
         tsplCmds.push(`GAP 3 mm, 0 mm`); 
         tsplCmds.push(`OFFSET 0 mm`);
+        tsplCmds.push(`SPEED 2`);         // Stabilizes motor traction on heavy tag stock
+        tsplCmds.push(`DENSITY 10`);      // Ensures crisp burn darkness
         tsplCmds.push(`DIRECTION 1`);
+        tsplCmds.push(`GAPDETECT`);      // Forces real-time optical hole calibration per job
         tsplCmds.push(`CLS`);
 
         const offsetX = Math.max(0, Math.round((fullWidthDots - imgWidth) / 2));
@@ -644,7 +647,6 @@
         const tsplHeader = tsplCmds.join('\r\n') + '\r\n';
         const bitmapCommand = `BITMAP ${offsetX}, ${offsetY}, ${bytesPerRow}, ${imgHeight}, 0,`;
         
-        // Removed explicit manual FEED command to prevent tracking buffer desync/drift across multi-batch prints
         const tsplFooter = `\r\nPRINT ${numCopies}\r\n`;
 
         const encoder = new TextEncoder();
@@ -668,7 +670,7 @@
           await writer.write(chunk);
         }
 
-        const estimatedMsPerLabel = 700 + (heightMm * 4);
+        const estimatedMsPerLabel = 900 + (heightMm * 5);
         const totalWaitMs = estimatedMsPerLabel * numCopies;
         await new Promise(resolve => setTimeout(resolve, totalWaitMs));
 
